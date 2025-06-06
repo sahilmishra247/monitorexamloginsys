@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Face Recognition</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .Register-container {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 350px;
+            text-align: center;
+        }
+
+        .Register-container h2 {
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #cbd5e1;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        #capture-button {
+            background-color: #22c55e;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        #capture-button:hover {
+            background-color: #16a34a;
+        }
+
+        #canvas {
+            display: block;
+            margin: 0 auto 20px;
+            border-radius: 6px;
+        }
+
+        button[type="submit"] {
+            background-color: #2563eb;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #1e40af;
+        }
+
+        #message {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="Register-container">
+        <button id="capture-button">Capture Face</button>
+        <h2>Register with Face Recognition</h2>
+
+        <form id="register-form">
+            <input type="text" name="username" id="username" placeholder="Username" required>
+
+            <div class="camera-container">
+                <video id="video" width="100%" height="auto" autoplay></video>
+                <canvas id="canvas" width="300" height="200"></canvas>
+                <button type="submit">Register</button>
+            </div>
+        </form>
+
+        <div id="message"></div>
+    </div>
+
+    <script>
+        const video = document
+    </script>
+
+</body>
+</html>
