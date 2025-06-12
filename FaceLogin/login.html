@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Face Login</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f7f9;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 400px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        video, canvas {
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin: 10px auto;
+            display: block;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 8px 4px;
+            font-size: 15px;
+            background-color: #28a745; /* Green for login */
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button.camera-btn {
+            background-color: #007BFF; /* Blue for camera */
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #218838; /* Darker green */
+        }
+
+        button.camera-btn:hover:not(:disabled) {
+            background-color: #0056b3; /* Darker blue */
+        }
+
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        a {
+            color: #007BFF;
+            text-decoration: none;
+            margin-top: 15px;
+            display: inline-block;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Face Login</h1>
+        <video id="video" width="320" height="240" autoplay></video>
+        <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+        <div>
+            <button onclick="startCamera()" class="camera-btn">Start Camera</button>
+            <button onclick="capturePhoto()" id="captureBtn" disabled>Capture Photo</button>
+            <button onclick="loginUser()" id="loginBtn" disabled>Login</button>
+        </div>
+        <div id="message"></div>
+        <a href="/simple">Don't have an account? Register here.</a>
+    </div>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let capturedImage = null;
+
+        function showMessage(text, type) {
+            document.getElementById('message').innerHTML = 
+                '<div class="message ' + type + '">' + text + '</div>';
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                document.getElementById('captureBtn').disabled = false;
+                showMessage('Camera started successfully! Look directly at the camera.', 'info');
+            } catch (err) {
+                showMessage('Error accessing camera: ' + err.message, 'error');
+            }
+        }
+
+        function capturePhoto() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+
+            capturedImage = canvas.toDataURL('image/jpeg', 0.8);
+            canvas.style.display = 'block';
+            document.getElementById('loginBtn').disabled = false;
+            showMessage('Photo captured! Now click Login to verify.', 'success');
+        }
+
+        async function loginUser() {
+            if (!capturedImage) {
+                showMessage('Please capture your photo first!', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Attempting to log in...', 'info');
+
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image_data: capturedImage
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Login successful! Welcome, ' + result.username + '.', 'success');
+                    // Here you would typically redirect to a dashboard or set a session
+                    // window.location.href = '/dashboard'; 
+                } else {
+                    showMessage('Login failed: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        window.onload = () => startCamera();
+    </script>
+</body>
+</html>
