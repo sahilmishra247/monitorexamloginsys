@@ -1,172 +1,421 @@
+
+# voiceauth.py
+from fastapi import FastAPI, HTTPException, Form, File, UploadFile, Request
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 import base64
 import numpy as np
 import os
 import librosa
+from resemblyzer import VoiceEncoder
 import io
-from flask import request
+from typing import Optional
 import json
 
-# Try to import resemblyzer, with fallback for demo purposes
-try:
-    from resemblyzer import VoiceEncoder
-    RESEMBLYZER_AVAILABLE = True
-except ImportError:
-    print("Warning: resemblyzer not available. Install with: pip install resemblyzer")
-    RESEMBLYZER_AVAILABLE = False
+app = FastAPI()
+
+# CORS configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Templates setup
+templates = Jinja2Templates(directory="templates")
+
+# Pydantic models for API requests
+class VoiceAuthRequest(BaseModel):
+    username: str
+    auth_method: str
+    voice_data: str
+
+class AuthResponse(BaseModel):
+    success: bool
+    message: str
 
 # Constants
 SAMPLE_RATE = 16000
-THRESHOLD = 0.85
+VOICE_THRESHOLD = 0.80
 EMBEDDING_DIR = "embeddings"
-
-# Create embeddings directory if it doesn't exist
+FINGERPRINT_DIR = "fingerprints"
 os.makedirs(EMBEDDING_DIR, exist_ok=True)
+os.makedirs(FINGERPRINT_DIR, exist_ok=True)
 
+# Static files (frontend)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Helper functions for voice processing
 def decode_base64(b64_string: str) -> bytes:
-    """Decode base64 string to bytes"""
     try:
         return base64.b64decode(b64_string)
-    except Exception as e:
-        raise Exception(f"Invalid base64 string: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid base64 string")
 
 def cosine_similarity(v1, v2) -> float:
-    """Calculate cosine similarity between two vectors"""
     a = np.array(v1)
     b = np.array(v2)
-    dot_product = np.dot(a, b)
-    norm_a = np.linalg.norm(a)
-    norm_b = np.linalg.norm(b)
-    
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-    
-    return float(dot_product / (norm_a * norm_b))
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 def preprocess_audio(y):
-    """Preprocess audio signal"""
-    # Trim silence
     y_trimmed, _ = librosa.effects.trim(y, top_db=20)
-    
-    # Normalize
-    max_val = np.max(np.abs(y_trimmed))
-    if max_val > 0:
-        y_normalized = y_trimmed / max_val
-    else:
-        y_normalized = y_trimmed
-    
-    return y_normalized
+    return y_trimmed / np.max(np.abs(y_trimmed)) if np.max(np.abs(y_trimmed)) > 0 else y_trimmed
 
 def extract_voice_embedding(y: np.ndarray) -> np.ndarray:
-    """Extract voice embedding from audio signal"""
-    if not RESEMBLYZER_AVAILABLE:
-        # Fallback: use MFCC features for demo
-        mfcc = librosa.feature.mfcc(y=y, sr=SAMPLE_RATE, n_mfcc=13)
-        return np.mean(mfcc.T, axis=0)
-    
     encoder = VoiceEncoder()
-    embedding = encoder.embed_utterance(y)
-    return embedding
+    return encoder.embed_utterance(y)
 
-def authenticate(flask_request):
-    """
-    Main authentication function called by the Flask app
-    Expected to receive JSON data with:
-    - user_id: string
-    - action: 'register' or 'login'
-    - audio_b64: base64 encoded audio data
-    """
+# Main route to serve the HTML page (serve the frontend HTML file)
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    """Serve the main HTML file"""
     try:
-        # Get JSON data from request
-        if flask_request.is_json:
-            data = flask_request.get_json()
-        else:
-            # Try to get from form data if not JSON
-            data = {
-                'user_id': flask_request.form.get('user_id'),
-                'action': flask_request.form.get('action'),
-                'audio_b64': flask_request.form.get('audio_b64')
-            }
+        with open("templates\\index.html", "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Frontend HTML file not found</h1>", status_code=404)
+
+# New API endpoints that match the frontend expectations
+@app.post("/api/register")
+async def api_register(request: Request):
+    """Handle registration requests from the frontend"""
+    try:
+        # Check content type to handle both JSON and form data
+        content_type = request.headers.get("content-type", "")
         
-        user_id = data.get('user_id')
-        action = data.get('action')
-        audio_b64 = data.get('audio_b64')
-        
-        if not user_id:
-            return {"success": False, "message": "User ID is required."}
-        
-        if not audio_b64:
-            return {"success": False, "message": "Audio data is required."}
-        
-        if not action:
-            return {"success": False, "message": "Action (register/login) is required."}
-        
-        # Decode audio data
-        audio_bytes = decode_base64(audio_b64)
-        
-        # Load audio using librosa
-        y, _ = librosa.load(io.BytesIO(audio_bytes), sr=SAMPLE_RATE)
-        
-        # Preprocess audio
-        y = preprocess_audio(y)
-        
-        # Check if audio is valid
-        if len(y) < SAMPLE_RATE * 0.5:  # Less than 0.5 seconds
-            return {"success": False, "message": "Audio too short. Please record for at least 1 second."}
-        
-        # Extract voice embedding
-        embedding = extract_voice_embedding(y)
-        embed_path = os.path.join(EMBEDDING_DIR, f"{user_id}.npy")
-        
-        if action == "register":
-            # Check if user already exists
-            if os.path.exists(embed_path):
-                return {
-                    "success": False, 
-                    "message": f"User '{user_id}' already registered. Use login instead.",
-                    "action": "register"
-                }
+        if "application/json" in content_type:
+            # Handle JSON request (voice authentication)
+            body = await request.json()
+            username = body.get("username")
+            auth_method = body.get("auth_method")
+            voice_data = body.get("voice_data")
             
-            # Save embedding
-            np.save(embed_path, embedding)
-            return {
-                "success": True, 
-                "message": f"User '{user_id}' registered successfully.",
-                "action": "register"
-            }
+            if not username or not username.strip():
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Username is required"}
+                )
             
-        elif action == "login":
-            # Check if user exists
-            if not os.path.exists(embed_path):
-                return {
-                    "success": False, 
-                    "message": f"No registered voiceprint found for user '{user_id}'. Please register first.",
-                    "action": "login"
-                }
+            if auth_method == "voice":
+                if not voice_data:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"success": False, "message": "Voice recording is required"}
+                    )
+                
+                # Process voice authentication
+                try:
+                    audio_bytes = decode_base64(voice_data)
+                    wav_io = io.BytesIO(audio_bytes)
+
+                    print(f"Decoded audio bytes for user '{username}' with length: {len(audio_bytes)}")
+
+                    y, _ = librosa.load(wav_io, sr=SAMPLE_RATE)
+
+                    print(f"Loaded audio for user '{username}' with shape: {y.shape}")
+
+                    y = preprocess_audio(y)
+                    voice_embedding = extract_voice_embedding(y)
+
+                    print(f"Extracted voice embedding for user '{username}': {voice_embedding.shape}")
+
+                    voice_embed_path = os.path.join(EMBEDDING_DIR, f"{username}.npy")
+                    
+                    # Check if user already exists
+                    if os.path.exists(voice_embed_path):
+                        return JSONResponse(
+                            status_code=409,
+                            content={"success": False, "message": f"User '{username}' is already registered"}
+                        )
+                    
+                    # Save voice embedding
+                    np.save(voice_embed_path, voice_embedding)
+
+                    print(f"Saved voice embedding for user '{username}' at {voice_embed_path}")
+
+                    return JSONResponse(content={
+                        "success": True, 
+                        "message": f"User '{username}' registered successfully with voice authentication!"
+                    })
+                    
+                except Exception as e:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"success": False, "message": f"Error processing voice data: {str(e)}"}
+                    )
             
-            # Load stored embedding
-            stored_embedding = np.load(embed_path)
-            
-            # Calculate similarity
-            similarity = cosine_similarity(embedding, stored_embedding)
-            
-            if similarity >= THRESHOLD:
-                return {
-                    "success": True, 
-                    "message": f"Login successful for '{user_id}' (Similarity: {similarity:.3f})",
-                    "action": "login",
-                    "similarity": similarity,
-                    "redirect": "/success"
-                }
             else:
-                return {
-                    "success": False, 
-                    "message": f"Authentication failed for '{user_id}' (Similarity: {similarity:.3f}). Please try again.",
-                    "action": "login",
-                    "similarity": similarity
-                }
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Invalid authentication method"}
+                )
+        
+        elif "multipart/form-data" in content_type:
+            # Handle form data (fingerprint authentication)
+            form = await request.form()
+            username = form.get("username")
+            auth_method = form.get("auth_method")
+            fingerprint = form.get("fingerprint")
+            
+            if not username or not username.strip():
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Username is required"}
+                )
+            
+            if auth_method == "fingerprint":
+                # Fingerprint authentication not implemented yet
+                return JSONResponse(
+                    status_code=501,
+                    content={"success": False, "message": "Fingerprint authentication is not yet implemented. Please use voice authentication."}
+                )
+            
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Invalid authentication method"}
+                )
         
         else:
-            return {"success": False, "message": "Invalid action. Use 'register' or 'login'."}
-            
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Unsupported content type"}
+            )
+    
     except Exception as e:
-        return {"success": False, "message": f"Authentication error: {str(e)}"}
+
+        print(f"Registration error: {str(e)}")
+
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Server error: {str(e)}"}
+        )
+
+@app.post("/api/login")
+async def api_login(request: Request):
+    """Handle login requests from the frontend"""
+    try:
+        # Check content type to handle both JSON and form data
+        content_type = request.headers.get("content-type", "")
+        
+        if "application/json" in content_type:
+            # Handle JSON request (voice authentication)
+            body = await request.json()
+            username = body.get("username")
+            auth_method = body.get("auth_method")
+            voice_data = body.get("voice_data")
+            
+            if not username or not username.strip():
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Username is required"}
+                )
+            
+            if auth_method == "voice":
+                if not voice_data:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"success": False, "message": "Voice recording is required"}
+                    )
+                
+                # Process voice authentication
+                try:
+                    voice_embed_path = os.path.join(EMBEDDING_DIR, f"{username}.npy")
+                    
+                    # Check if user exists
+                    if not os.path.exists(voice_embed_path):
+                        return JSONResponse(
+                            status_code=404,
+                            content={"success": False, "message": f"No voice registration found for user '{username}'"}
+                        )
+                    
+                    # Load stored voice embedding
+                    stored_voice = np.load(voice_embed_path)
+                    
+                    # Process current voice sample
+                    audio_bytes = decode_base64(voice_data)
+                    y, _ = librosa.load(io.BytesIO(audio_bytes), sr=SAMPLE_RATE)
+                    y = preprocess_audio(y)
+                    voice_embedding = extract_voice_embedding(y)
+                    
+                    # Compare voice embeddings
+                    voice_similarity = cosine_similarity(voice_embedding, stored_voice)
+                    
+                    # Check if similarity meets threshold
+                    if voice_similarity >= VOICE_THRESHOLD:
+                        return JSONResponse(content={
+                            "success": True,
+                            "message": f"Voice login successful for '{username}'! (Similarity: {voice_similarity:.3f})"
+                        })
+                    else:
+                        return JSONResponse(
+                            status_code=401,
+                            content={
+                                "success": False,
+                                "message": f"Voice authentication failed for '{username}' (Similarity: {voice_similarity:.3f})"
+                            }
+                        )
+                        
+                except Exception as e:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"success": False, "message": f"Error processing voice data: {str(e)}"}
+                    )
+            
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Invalid authentication method"}
+                )
+        
+        elif "multipart/form-data" in content_type:
+            # Handle form data (fingerprint authentication)
+            form = await request.form()
+            username = form.get("username")
+            auth_method = form.get("auth_method")
+            fingerprint = form.get("fingerprint")
+            
+            if not username or not username.strip():
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Username is required"}
+                )
+            
+            if auth_method == "fingerprint":
+                # Fingerprint authentication not implemented yet
+                return JSONResponse(
+                    status_code=501,
+                    content={"success": False, "message": "Fingerprint authentication is not yet implemented. Please use voice authentication."}
+                )
+            
+            else:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Invalid authentication method"}
+                )
+        
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Unsupported content type"}
+            )
+    
+    except Exception as e:
+        print(f"Login error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Server error: {str(e)}"}
+        )
+
+# Legacy form-based endpoint (kept for backward compatibility)
+@app.post("/")
+async def handle_auth(
+    request: Request,
+    action: str = Form(...),
+    username: str = Form(...),
+    auth_method: str = Form(...),
+    fingerprint: Optional[UploadFile] = File(None),
+    voice_data: Optional[str] = Form(None)
+):
+    """Legacy form-based endpoint - kept for backward compatibility"""
+    try:
+        if not username.strip():
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "message": "Username is required"
+            })
+        
+        # Only process voice authentication (fingerprint is ignored)
+        if auth_method == "voice":
+            if not voice_data:
+                return templates.TemplateResponse("index.html", {
+                    "request": request,
+                    "message": "Voice recording is required for voice authentication"
+                })
+            
+            # Process voice
+            audio_bytes = decode_base64(voice_data)
+            y, _ = librosa.load(io.BytesIO(audio_bytes), sr=SAMPLE_RATE)
+            y = preprocess_audio(y)
+            voice_embedding = extract_voice_embedding(y)
+            
+            # File path for voice
+            voice_embed_path = os.path.join(EMBEDDING_DIR, f"{username}.npy")
+            
+            if action == "register":
+                # Check if user already exists
+                if os.path.exists(voice_embed_path):
+                    return templates.TemplateResponse("index.html", {
+                        "request": request,
+                        "message": f"User '{username}' is already registered"
+                    })
+                
+                # Save voice embedding
+                np.save(voice_embed_path, voice_embedding)
+                
+                return templates.TemplateResponse("index.html", {
+                    "request": request,
+                    "message": f"✅ User '{username}' registered successfully with voice authentication!"
+                })
+            
+            elif action == "login":
+                # Check if user exists
+                if not os.path.exists(voice_embed_path):
+                    return templates.TemplateResponse("index.html", {
+                        "request": request,
+                        "message": f"❌ No voice registration found for user '{username}'"
+                    })
+                
+                # Load stored voice
+                stored_voice = np.load(voice_embed_path)
+                
+                # Compare voice
+                voice_similarity = cosine_similarity(voice_embedding, stored_voice)
+                
+                # Voice authentication
+                if voice_similarity >= VOICE_THRESHOLD:
+                    return templates.TemplateResponse("index.html", {
+                        "request": request,
+                        "message": f"✅ Voice login successful for '{username}'! (Similarity: {voice_similarity:.3f})"
+                    })
+                else:
+                    return templates.TemplateResponse("index.html", {
+                        "request": request,
+                        "message": f"❌ Voice authentication failed for '{username}' (Similarity: {voice_similarity:.3f})"
+                    })
+        
+        elif auth_method == "fingerprint":
+            # Fingerprint method selected but not implemented
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "message": "🚧 Fingerprint authentication is not yet implemented. Please use voice authentication."
+            })
+        
+        else:
+            return templates.TemplateResponse("index.html", {
+                "request": request,
+                "message": "Invalid authentication method selected"
+            })
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return templates.TemplateResponse("index.html", {
+            "request": request,
+            "message": f"❌ Error processing request: {str(e)}"
+        })
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint"""
+    return {"status": "healthy", "message": "Voice authentication service is running"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
