@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        
+        .login-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .login-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 30px;
+            text-decoration: none;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            outline: none;
+        }
+        
+        .voice-login {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .fingerprint-login {
+            background: linear-gradient(135deg, #4ecdc4, #26de81);
+            color: white;
+        }
+        
+        .face-login {
+            background: linear-gradient(135deg, #a8edea, #fed6e3);
+            color: #333;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .icon {
+            font-size: 1.5rem;
+            margin-right: 15px;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Authentication Portal</h1>
+        <p class="description">
+            Choose your preferred method of authentication to access the system
+        </p>
+        
+        <div class="login-options">
+            <a href="/login/voice" class="login-btn voice-login">
+                <span class="icon">🎤</span>
+                Voice Recognition Login
+            </a>
+            
+            <a href="/login/fingerprint" class="login-btn fingerprint-login">
+                <span class="icon">👆</span>
+                Fingerprint Authentication
+            </a>
+            
+            <a href="/login/face" class="login-btn face-login">
+                <span class="icon">👤</span>
+                Facial Recognition Login
+            </a>
+        </div>
+    </div>
+</body>
+</html>

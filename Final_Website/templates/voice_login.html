@@ -1,0 +1,218 @@
+<!-- index.html 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Authentication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Voice Authentication</h2>
+
+    <p>Are you a new user?</p>
+    <button onclick="setUserType('register')">Yes (Register)</button>
+    <button onclick="setUserType('login')">No (Login)</button>
+    <br><br>
+
+    <label for="userId">User ID:</label>
+    <input type="text" id="userId" required><br><br>
+
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <button onclick="submitAudio()">Submit</button>
+
+    <p id="status"></p>
+    <p id="message"></p>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let userType = "register"; // default to register
+
+        function setUserType(type) {
+            userType = type;
+            document.getElementById("status").innerText = `Mode set to: ${type}`;
+        }
+
+        async function startRecording() {
+            const userId = document.getElementById("userId").value;
+            if (!userId) {
+                alert("Please enter a User ID before recording.");
+                return;
+            }
+
+            audioChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            document.getElementById("status").innerText = "Recording...";
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                document.getElementById("status").innerText = "Recording stopped.";
+            }
+        }
+
+        async function submitAudio() {
+    const userId = document.getElementById("userId").value;
+    if (!userId) {
+        alert("User ID is required.");
+        return;
+    }
+
+    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+        const base64data = reader.result.split(',')[1];
+
+        fetch(`http://localhost:8000/${userType}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ user_id: userId, audio_b64: base64data})
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById("message").textContent = data.message;
+        })
+        .catch(error => {
+            document.getElementById("message").textContent = 'Error: ' + error;
+        });
+    };
+
+    reader.readAsDataURL(blob);
+}
+
+    </script>
+</body>
+</html>
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Authentication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Voice Authentication</h2>
+
+    <p>Are you a new user?</p>
+    <button onclick="setUserType('register')">Yes (Register)</button>
+    <button onclick="setUserType('login')">No (Login)</button>
+    <br><br>
+
+    <label for="userId">User ID:</label>
+    <input type="text" id="userId" required><br><br>
+
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <button onclick="submitAudio()">Submit</button>
+
+    <p id="status"></p>
+    <p id="message"></p>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let userType = "register";
+
+        function setUserType(type) {
+            userType = type;
+            document.getElementById("status").innerText = `Mode set to: ${type}`;
+        }
+
+        async function startRecording() {
+            const userId = document.getElementById("userId").value;
+            if (!userId) {
+                alert("Please enter a User ID before recording.");
+                return;
+            }
+
+            audioChunks = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            document.getElementById("status").innerText = "Recording...";
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+                document.getElementById("status").innerText = "Recording stopped.";
+            }
+        }
+
+        async function submitAudio() {
+            const userId = document.getElementById("userId").value;
+            if (!userId) {
+                alert("User ID is required.");
+                return;
+            }
+
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            console.log("Blob size:", blob.size);
+            console.log("before reader.onloadend");
+            reader.onloadend = () => {
+                console.log(typeof reader.result);
+                const base64data = reader.result.split(',')[1];
+                console.log("base64data:", typeof base64data);
+                fetch(`/api/${userType}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: userId, audio_b64: base64data })
+                })
+                
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("message").textContent = data.message;
+                })
+                .catch(error => {
+                    document.getElementById("message").textContent = 'Error: ' + error;
+                })
+                console.log(typeof reader.result);;
+            };
+            console.log("after reader.onloadend");
+            
+            
+        }
+    </script>
+</body>
+</html>

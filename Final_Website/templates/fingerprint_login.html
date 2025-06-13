@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fingerprint Authentication</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(120deg, #c3cfe2, #e2ebf0);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 40px 35px;
+            border-radius: 20px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(40px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            margin-bottom: 25px;
+            color: #512da8;
+            font-size: 30px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 14px;
+            margin: 12px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus {
+            border-color: #7e57c2;
+            box-shadow: 0 0 5px rgba(126, 87, 194, 0.3);
+            outline: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(to right, #7e57c2, #512da8);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(to right, #673ab7, #311b92);
+            transform: scale(1.03);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 25px;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease-in;
+            display: none;
+        }
+
+        .message.success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+
+        .message.error {
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+            color: #7e57c2;
+            font-weight: 500;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #7e57c2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 500px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-btn">← Back to Home</a>
+    
+    <div class="container">
+        <h1>🔒 Fingerprint Authentication</h1>
+        <form id="fingerprintForm" enctype="multipart/form-data">
+            <input type="text" name="username" id="username" placeholder="👤 Enter your username" required>
+            <input type="file" name="fingerprint" id="fingerprint" accept="image/*" required>
+            
+            <div class="button-group">
+                <button type="button" onclick="submitForm('register')">Register</button>
+                <button type="button" onclick="submitForm('login')">Login</button>
+            </div>
+        </form>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            Processing fingerprint...
+        </div>
+        
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        async function submitForm(action) {
+            const form = document.getElementById('fingerprintForm');
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById('message');
+            const loadingDiv = document.getElementById('loading');
+            const buttons = document.querySelectorAll('button');
+            
+            // Add action to form data
+            formData.append('action', action);
+            
+            // Show loading, hide message
+            loadingDiv.style.display = 'block';
+            messageDiv.style.display = 'none';
+            
+            // Disable buttons
+            buttons.forEach(btn => btn.disabled = true);
+            
+            try {
+                const response = await fetch('/authenticate/fingerprint', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                // Hide loading
+                loadingDiv.style.display = 'none';
+                
+                // Show message
+                messageDiv.textContent = result.message;
+                messageDiv.className = `message ${result.success ? 'success' : 'error'}`;
+                messageDiv.style.display = 'block';
+                
+                // If login successful, redirect after short delay
+                if (result.success && result.action === 'login' && result.redirect) {
+                    setTimeout(() => {
+                        window.location.href = result.redirect;
+                    }, 1500);
+                }
+                
+            } catch (error) {
+                // Hide loading
+                loadingDiv.style.display = 'none';
+                
+                // Show error message
+                messageDiv.textContent = 'An error occurred during authentication. Please try again.';
+                messageDiv.className = 'message error';
+                messageDiv.style.display = 'block';
+                
+                console.error('Error:', error);
+            } finally {
+                // Re-enable buttons
+                buttons.forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // Reset form and message when file is changed
+        document.getElementById('fingerprint').addEventListener('change', function() {
+            const messageDiv = document.getElementById('message');
+            messageDiv.style.display = 'none';
+        });
+
+        // Reset message when username is changed
+        document.getElementById('username').addEventListener('input', function() {
+            const messageDiv = document.getElementById('message');
+            messageDiv.style.display = 'none';
+        });
+    </script>
+</body>
+</html>

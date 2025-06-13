@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Face Login</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #a8edea, #fed6e3);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 400px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        video, canvas {
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin: 10px auto;
+            display: block;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 8px 4px;
+            font-size: 15px;
+            background-color: #28a745; /* Green for login */
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button.camera-btn {
+            background-color: #007BFF; /* Blue for camera */
+        }
+
+        button.register-btn {
+            background-color: #ffc107; /* Yellow for register */
+            color: #333;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #218838; /* Darker green */
+        }
+
+        button.camera-btn:hover:not(:disabled) {
+            background-color: #0056b3; /* Darker blue */
+        }
+
+        button.register-btn:hover:not(:disabled) {
+            background-color: #e0a800; /* Darker yellow */
+        }
+
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        a {
+            color: #007BFF;
+            text-decoration: none;
+            margin-top: 15px;
+            display: inline-block;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .mode-switch {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            transition: border 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: #007BFF;
+        }
+
+        .back-btn {
+            background: #6c757d !important;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👤 Face Recognition</h1>
+        
+        <div class="mode-switch">
+            <button onclick="switchMode('login')" id="loginModeBtn" class="camera-btn">Login Mode</button>
+            <button onclick="switchMode('register')" id="registerModeBtn" class="register-btn">Register Mode</button>
+        </div>
+        
+        <!-- Login Mode -->
+        <div id="loginMode">
+            <p>Look directly at the camera to log in</p>
+        </div>
+        
+        <!-- Register Mode -->
+        <div id="registerMode" style="display: none;">
+            <p>Enter your name and capture your face to register</p>
+            <input type="text" id="username" placeholder="Enter your name" />
+        </div>
+        
+        <video id="video" width="320" height="240" autoplay></video>
+        <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+        
+        <div>
+            <button onclick="startCamera()" class="camera-btn">Start Camera</button>
+            <button onclick="capturePhoto()" id="captureBtn" disabled>Capture Photo</button>
+            <button onclick="processAction()" id="actionBtn" disabled>Login</button>
+        </div>
+        
+        <div id="message"></div>
+        
+        <a href="/" class="back-btn" style="display: inline-block; text-decoration: none; color: white; padding: 10px 20px; border-radius: 8px; background: #6c757d;">
+            ← Back to Login Options
+        </a>
+    </div>
+
+    <script>
+        let video = document.getElementById('video');
+        let canvas = document.getElementById('canvas');
+        let capturedImage = null;
+        let currentMode = 'login';
+
+        function showMessage(text, type) {
+            document.getElementById('message').innerHTML = 
+                '<div class="message ' + type + '">' + text + '</div>';
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            const loginMode = document.getElementById('loginMode');
+            const registerMode = document.getElementById('registerMode');
+            const actionBtn = document.getElementById('actionBtn');
+            const loginModeBtn = document.getElementById('loginModeBtn');
+            const registerModeBtn = document.getElementById('registerModeBtn');
+            
+            if (mode === 'login') {
+                loginMode.style.display = 'block';
+                registerMode.style.display = 'none';
+                actionBtn.textContent = 'Login';
+                actionBtn.className = '';
+                loginModeBtn.style.opacity = '1';
+                registerModeBtn.style.opacity = '0.6';
+            } else {
+                loginMode.style.display = 'none';
+                registerMode.style.display = 'block';
+                actionBtn.textContent = 'Register';
+                actionBtn.className = 'register-btn';
+                loginModeBtn.style.opacity = '0.6';
+                registerModeBtn.style.opacity = '1';
+            }
+            
+            // Reset state
+            capturedImage = null;
+            canvas.style.display = 'none';
+            document.getElementById('actionBtn').disabled = true;
+            showMessage('Mode switched to ' + mode, 'info');
+        }
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                document.getElementById('captureBtn').disabled = false;
+                showMessage('Camera started successfully! Look directly at the camera.', 'info');
+            } catch (err) {
+                showMessage('Error accessing camera: ' + err.message, 'error');
+            }
+        }
+
+        function capturePhoto() {
+            if (currentMode === 'register') {
+                const username = document.getElementById('username').value.trim();
+                if (!username) {
+                    showMessage('Please enter your name first!', 'error');
+                    return;
+                }
+            }
+
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+
+            capturedImage = canvas.toDataURL('image/jpeg', 0.8);
+            canvas.style.display = 'block';
+            document.getElementById('actionBtn').disabled = false;
+            showMessage('Photo captured! Now click ' + (currentMode === 'login' ? 'Login' : 'Register') + '.', 'success');
+        }
+
+        async function processAction() {
+            if (!capturedImage) {
+                showMessage('Please capture your photo first!', 'error');
+                return;
+            }
+
+            try {
+                let requestData = { image_data: capturedImage };
+                let actionText = 'Attempting to log in...';
+                
+                if (currentMode === 'register') {
+                    const username = document.getElementById('username').value.trim();
+                    if (!username) {
+                        showMessage('Please enter your name!', 'error');
+                        return;
+                    }
+                    requestData.username = username;
+                    actionText = 'Registering user...';
+                }
+
+                showMessage(actionText, 'info');
+
+                const response = await fetch('/authenticate/face', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    if (currentMode === 'login') {
+                        showMessage('Login successful! Welcome, ' + result.username + '.', 'success');
+                    } else {
+                        showMessage('Registration successful! User ' + requestData.username + ' has been registered.', 'success');
+                        document.getElementById('username').value = '';
+                    }
+                    
+                    // Reset state
+                    canvas.style.display = 'none';
+                    capturedImage = null;
+                    document.getElementById('actionBtn').disabled = true;
+                    
+                    // Redirect after success
+                    if (result.redirect) {
+                        setTimeout(() => {
+                            window.location.href = result.redirect;
+                        }, 2000);
+                    }
+                } else {
+                    showMessage((currentMode === 'login' ? 'Login' : 'Registration') + ' failed: ' + result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        window.onload = () => {
+            startCamera();
+            switchMode('login'); // Start in login mode
+        };
+    </script>
+</body>
+</html>
