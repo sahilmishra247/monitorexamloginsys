@@ -651,11 +651,12 @@
             disableVoiceFeatures();
         }
 
-        startBtn.addEventListener('click', startRecording);
-        stopBtn.addEventListener('click', stopRecording);
+        startBtn.addEventListener('click', startRecording());
+        stopBtn.addEventListener('click', stopRecording());
 
         async function startRecording() {
             try {
+                console.log('Starting audio recording...');
                 recordedChunks = [];
                 audioStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
@@ -665,7 +666,7 @@
                         sampleRate: 16000
                     } 
                 });
-                
+                console.log('Audio stream started:');
                 const options = {
                     mimeType: 'audio/webm;codecs=opus'
                 };
