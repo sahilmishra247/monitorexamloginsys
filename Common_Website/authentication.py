@@ -39,15 +39,14 @@ class BiometricAuthenticator(ABC):
         os.makedirs(self.data_dir, exist_ok=True)
     
     @abstractmethod
-    def extract_features(self, data: bytes) -> np.ndarray:
+    def extract_features(self, data_bytes: np.ndarray) -> np.ndarray:
         """Extract features from raw biometric data"""
         pass
     
     @abstractmethod
     def preprocess_data(self, data: Any) -> Any:
         """Preprocess the biometric data"""
-        y_trimmed, _ = librosa.effects.trim(data, top_db=20)
-        return y_trimmed / np.max(np.abs(y_trimmed)) if np.max(np.abs(y_trimmed)) > 0 else y_trimmed
+        pass
         
     
     def calculate_similarity(self, features1: np.ndarray, features2: np.ndarray) -> float:
@@ -160,15 +159,15 @@ class VoiceAuthenticator(BiometricAuthenticator):
         super().__init__("voice", Config.VOICE_THRESHOLD)
         self.encoder = VoiceEncoder()
     
-    def preprocess_data(self, audio_bytes: bytes) -> np.ndarray:
+    def preprocess_data(self, data: bytes) -> np.ndarray:
         """Preprocess audio data"""
-        y, _ = librosa.load(io.BytesIO(audio_bytes), sr=Config.SAMPLE_RATE)
+        y, _ = librosa.load(io.BytesIO(data), sr=Config.SAMPLE_RATE)
         y_trimmed, _ = librosa.effects.trim(y, top_db=20)
         return y_trimmed / np.max(np.abs(y_trimmed)) if np.max(np.abs(y_trimmed)) > 0 else y_trimmed
     
-    def extract_features(self, audio_data: np.ndarray) -> np.ndarray:
+    def extract_features(self, data_bytes: np.ndarray) -> np.ndarray:
         """Extract voice features using Resemblyzer"""
-        return self.encoder.embed_utterance(audio_data)
+        return self.encoder.embed_utterance(data_bytes)
 
 # Placeholder classes for future biometric methods
 class FaceAuthenticator(BiometricAuthenticator):

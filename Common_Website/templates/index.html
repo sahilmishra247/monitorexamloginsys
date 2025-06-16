@@ -811,8 +811,8 @@
 // This integrates your frontend with the Flask backend
 
 // Update the existing event listeners for register and login buttons
-registerBtn.addEventListener('click', handleRegister);
-loginBtn.addEventListener('click', handleLogin);
+registerBtn.addEventListener('click', handleAuth('register'));
+loginBtn.addEventListener('click', handleAuth('login'));
 
 // Update username display in voice prompt
 document.getElementById('username').addEventListener('input', function() {
@@ -821,16 +821,17 @@ document.getElementById('username').addEventListener('input', function() {
     document.getElementById('promptId').textContent = username || '[Enter your username above]';
 });
 
-async function handleRegister() {
+async function handleAuth(selectedMode) {
     const username = document.getElementById('username').value.trim();
-    if (!username) {
+    if (!username) {    
         showMessage('Please enter a username', 'error');
         return;
     }
 
+    
     const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
     
-    showMessage('Processing registration...', 'processing');
+    showMessage(`Processing ${selectedMode}...`, 'processing');
     disableSubmitButtons();
 
     try {
@@ -881,109 +882,43 @@ async function handleRegister() {
             };
         }
 
-        const response = await fetch('/api/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData)
-        });
+        if (selectedMode=='register') {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
 
-        const result = await response.json();
-        
-        if (result.success) {
-            showMessage(result.message, 'success');
-        } else {
-            showMessage(result.message, 'error');
-        }
+            const result = await response.json();
+            
+            if (result.success) {
+                showMessage(result.message, 'success');
+            } else {
+                showMessage(result.message, 'error');
+            }
+        } else if (selectedMode=='login'){
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
+            } else {
+                showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
+            }
+        }   
         
     } catch (error) {
-        console.error('Registration error:', error);
-        showMessage('Registration failed. Please try again.', 'error');
-    } finally {
-        enableSubmitButtons();
-    }
-}
-
-async function handleLogin() {
-    const username = document.getElementById('username').value.trim();
-    if (!username) {
-        showMessage('Please enter a username', 'error');
-        return;
-    }
-
-    const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
-    
-    showMessage('Authenticating...', 'processing');
-    disableSubmitButtons();
-
-    try {
-        let requestData;
-        
-        if (selectedMethod === 'voice') {
-            const voiceData = document.getElementById('voiceData').value;
-            if (!voiceData) {
-                showMessage('Please record your voice first', 'error');
-                enableSubmitButtons();
-                return;
-            }
-            
-            requestData = {
-                username: username,
-                auth_method: 'voice',
-                voice_data: voiceData
-            };
-            
-        } else if (selectedMethod === 'face') {
-            const faceData = document.getElementById('faceData').value;
-            if (!faceData) {
-                showMessage('Please capture your face first', 'error');
-                enableSubmitButtons();
-                return;
-            }
-            
-            requestData = {
-                username: username,
-                auth_method: 'face',
-                face_data: faceData
-            };
-            
-        } else if (selectedMethod === 'fingerprint') {
-            const fingerprintFile = document.getElementById('fingerprintInput').files[0];
-            if (!fingerprintFile) {
-                showMessage('Please select a fingerprint image', 'error');
-                enableSubmitButtons();
-                return;
-            }
-            
-            // Convert file to base64
-            const base64Data = await fileToBase64(fingerprintFile);
-            requestData = {
-                username: username,
-                auth_method: 'fingerprint',
-                data_b64: base64Data
-            };
-        }
-
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData)
-        });
-
-        const result = await response.json();
-        
-        if (result.success) {
-            showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
-        } else {
-            showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
-        }
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        showMessage('Authentication failed. Please try again.', 'error');
+        console.error(`${selectedMode} error:`, error);
+        showMessage(`${selectedMode} failed. Please try again.`, 'error');
     } finally {
         enableSubmitButtons();
     }
