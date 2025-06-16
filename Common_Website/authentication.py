@@ -214,6 +214,10 @@ class BiometricManager:
                 # Test if the method is implemented
                 if method == "voice":
                     available.append(method)
+                elif method == "face":
+                    available.append(method)  # Add when implemented
+                elif method == "fingerprint":
+                    available.append(method)
                 # Add other methods when implemented
             except NotImplementedError:
                 pass

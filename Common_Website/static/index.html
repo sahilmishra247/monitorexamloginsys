@@ -425,7 +425,7 @@
         let audioBlob;
         let isRecording = false;
         let audioStream;
-        
+        console.log('Initializing biometric login system...');
         // Face capture variables
         let videoStream;
         let isCameraActive = false;
@@ -460,45 +460,48 @@
         const fingerprintSection = document.getElementById('fingerprintSection');
         const faceSection = document.getElementById('faceSection');
         const fingerprintInput = document.getElementById('fingerprintInput');
-
+        console.log('Initializing biometric login system...');
         // Authentication method switching
-        voiceMethodRadio.addEventListener('change', function() {
-            if (this.checked) {
-                voiceSection.style.display = 'block';
-                fingerprintSection.style.display = 'none';
-                faceSection.style.display = 'none';
-                fingerprintInput.required = false;
-                resetVoiceRecording();
-                resetFaceCapture();
-                checkSubmitRequirements();
+        function switchAuthMethod(selectedMethod) {
+            //const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
+            
+            // Hide all sections first
+            voiceSection.style.display = 'none';
+            fingerprintSection.style.display = 'none';
+            faceSection.style.display = 'none';
+            
+            // Reset all data
+            voiceDataInput.value = '';
+            faceDataInput.value = '';
+            fingerprintInput.value = '';
+            fingerprintInput.required = false;
+            
+            // Stop any active recording or camera
+            resetVoiceRecording();
+            resetFaceCapture();
+            
+            // Show the selected section
+            switch(selectedMethod) {
+                case 'voice':
+                    voiceSection.style.display = 'block';
+                    break;
+                case 'fingerprint':
+                    fingerprintSection.style.display = 'block';
+                    fingerprintInput.required = true;
+                    enableSubmitButtons(); // Fingerprint doesn't need special validation
+                    break;
+                case 'face':
+                    faceSection.style.display = 'block';
+                    break;
             }
-        });
+            
+            checkSubmitRequirements();
+        }
 
-        fingerprintMethodRadio.addEventListener('change', function() {
-            if (this.checked) {
-                voiceSection.style.display = 'none';
-                fingerprintSection.style.display = 'block';
-                faceSection.style.display = 'none';
-                fingerprintInput.required = true;
-                voiceDataInput.value = '';
-                faceDataInput.value = '';
-                resetFaceCapture();
-                enableSubmitButtons();
-            }
-        });
-
-        faceMethodRadio.addEventListener('change', function() {
-            if (this.checked) {
-                voiceSection.style.display = 'none';
-                fingerprintSection.style.display = 'none';
-                faceSection.style.display = 'block';
-                fingerprintInput.required = false;
-                voiceDataInput.value = '';
-                resetVoiceRecording();
-                resetFaceCapture();
-                checkSubmitRequirements();
-            }
-        });
+        // Add event listeners for all radio buttons
+        voiceMethodRadio.addEventListener('change', switchAuthMethod('voice'));
+        fingerprintMethodRadio.addEventListener('change', switchAuthMethod('fingerprint'));
+        faceMethodRadio.addEventListener('change', switchAuthMethod('face'));
 
         // Fingerprint file change handler
         fingerprintInput.addEventListener('change', function() {
@@ -650,7 +653,11 @@
             showMessage('Voice recording is not supported in this browser', 'error');
             disableVoiceFeatures();
         }
-
+        document.getElementById('username').addEventListener('input', function() {
+            const username = this.value;
+            document.getElementById('promptName').textContent = username || '[Enter your name above]';
+            document.getElementById('promptId').textContent = username || '[Enter your username above]';
+        });
         startBtn.addEventListener('click', startRecording());
         stopBtn.addEventListener('click', stopRecording());
 
@@ -816,11 +823,7 @@ registerBtn.addEventListener('click', handleAuth('register'));
 loginBtn.addEventListener('click', handleAuth('login'));
 
 // Update username display in voice prompt
-document.getElementById('username').addEventListener('input', function() {
-    const username = this.value;
-    document.getElementById('promptName').textContent = username || '[Enter your name above]';
-    document.getElementById('promptId').textContent = username || '[Enter your username above]';
-});
+
 
 async function handleAuth(selectedMode) {
     const username = document.getElementById('username').value.trim();
@@ -1000,7 +1003,7 @@ function checkSubmitRequirements() {
 function handleUnsupportedMethod(method) {
     showMessage(`${method} authentication is not yet implemented. Please use voice authentication.`, 'error');
     // Switch back to voice method
-    document.getElementById('voiceMethod').checked = true;
+    //document.getElementById('voiceMethod').checked = true;
     voiceSection.style.display = 'block';
     fingerprintSection.style.display = 'none';
     faceSection.style.display = 'none';
