@@ -1,4 +1,4 @@
-# app.py
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import base64
@@ -291,7 +291,7 @@ def register():
             data_b64 = data.get('data_b64')  # Already set above from file
         else:
             data_b64 = data.get('data_b64')
-        
+        print('data is decoded')
         # Validate required fields
         if not all([user_id, auth_type, data_b64]):
             missing = []
@@ -316,10 +316,10 @@ def register():
             raw_data = decode_base64(data_b64)
         except ValueError as e:
             return jsonify({"success": False, "message": str(e)}), 400
-        
+        print('data is decoded')
         # Register user
         result = authenticator.register_user(user_id, raw_data)
-        
+        print(f'Registration result: {result}')
         status_code = 200 if result["success"] else 400
         return jsonify(result), status_code
         
