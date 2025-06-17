@@ -20,7 +20,7 @@ CORS(app)
 class Config:
     SAMPLE_RATE = 16000
     VOICE_THRESHOLD = 0.85
-    EMBEDDING_DIR = "embeddings"
+    EMBEDDING_DIR = "monitorexamloginsys/embeddings"
     STATIC_DIR = "static"
     
     # Future thresholds for other biometric methods
@@ -69,6 +69,7 @@ class BiometricAuthenticator(ABC):
         """Load user features from file"""
         try:
             feature_path = os.path.join(self.data_dir, f"{user_id}.npy")
+            print(f"Loading features from: {feature_path}")
             if os.path.exists(feature_path):
                 return np.load(feature_path)
             return None
@@ -384,9 +385,6 @@ def register():
         else:
             data = request.form.to_dict()
         
-        print(f"Request data: {data}")
-        print(f"Request files: {request.files}")
-        
         # Map frontend field names to backend names
         user_id = data.get('username') or data.get('user_id')
         auth_type = data.get('auth_method') or data.get('auth_type')
@@ -476,9 +474,6 @@ def login():
             data = request.get_json()
         else:
             data = request.form.to_dict()
-        
-        print(f"Request data: {data}")
-        print(f"Request files: {request.files}")
         
         # Map frontend field names to backend names
         user_id = data.get('username') or data.get('user_id')

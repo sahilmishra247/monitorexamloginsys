@@ -314,6 +314,17 @@
     <div class="container">
         <h1>🔒 Biometric Login System</h1>
         <form id="authForm">
+            <h3 style="color: #512da8; margin-top: 0;">Are you a new User?</h3>
+            <div class="method-selection">
+                    <label class="method-option">
+                        <input type="radio" name="user_type" value="register" checked>
+                        <span class="method-label">New User/Register</span>
+                    </label>
+                    <label class="method-option">
+                        <input type="radio" name="user_type" value="login">
+                        <span class="method-label">Existing User/Login</span>
+                    </label>
+            </div>
             <input type="text" name="username" id="username" placeholder="👤 Enter your username" required>
             
             <!-- Authentication Method Selection -->
@@ -413,8 +424,7 @@
             <input type="hidden" name="voice_data" id="voiceData">
             <input type="hidden" name="face_data" id="faceData">
             
-            <button type="button" id="registerBtn">Register</button>
-            <button type="button" id="loginBtn">Login</button>
+            <button type="button" id="submitBtn">Submit</button>
         </form>
         <div id="message" class="message" style="display: none"></div>
     </div>
@@ -450,8 +460,7 @@
         const capturedImage = document.getElementById('capturedImage');
         const faceDataInput = document.getElementById('faceData');
         
-        const registerBtn = document.getElementById('registerBtn');
-        const loginBtn = document.getElementById('loginBtn');
+        const submitBtn = document.getElementById('submitBtn');
         const messageDiv = document.getElementById('message');
         const voiceMethodRadio = document.getElementById('voiceMethod');
         const fingerprintMethodRadio = document.getElementById('fingerprintMethod');
@@ -460,7 +469,7 @@
         const fingerprintSection = document.getElementById('fingerprintSection');
         const faceSection = document.getElementById('faceSection');
         const fingerprintInput = document.getElementById('fingerprintInput');
-        
+
         // Authentication method switching
         function switchAuthMethod() {
             const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
@@ -505,6 +514,11 @@
 
         // Fingerprint file change handler
         fingerprintInput.addEventListener('change', function() {
+            checkSubmitRequirements();
+        });
+
+        const userChange = document.querySelector('input[value="register"]');
+        userChange.addEventListener('change', function() {
             checkSubmitRequirements();
         });
 
@@ -842,9 +856,11 @@
             status.style.color = '#c62828';
         }
 
-        // Event handlers for register and login buttons
-        registerBtn.addEventListener('click', () => handleAuth('register'));
-        loginBtn.addEventListener('click', () => handleAuth('login'));
+        // Event handler for submit button
+        submitBtn.addEventListener('click', () => {
+            const isNewUser = document.querySelector('input[name="user_type"]:checked').value;
+            handleAuth(isNewUser);
+        });
 
         // Update username display in voice prompt
         document.getElementById('username').addEventListener('input', function() {
@@ -1007,13 +1023,11 @@
 
         // Update button state management
         function disableSubmitButtons() {
-            registerBtn.disabled = true;
-            loginBtn.disabled = true;
+            submitBtn.disabled = true;
         }
 
         function enableSubmitButtons() {
-            registerBtn.disabled = false;
-            loginBtn.disabled = false;
+            submitBtn.disabled = false;
         }
 
         // Initialize the form
