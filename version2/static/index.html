@@ -67,6 +67,31 @@
             border-radius: 10px;
             background-color: #fafafa;
         }
+        .user-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .user-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .user-option:hover {
+            background-color: #e3f2fd;
+        }
+        .user-option input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        .user-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
         .method-selection {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -314,16 +339,18 @@
     <div class="container">
         <h1>🔒 Biometric Login System</h1>
         <form id="authForm">
-            <h3 style="color: #512da8; margin-top: 0;">Are you a new User?</h3>
-            <div class="method-selection">
-                    <label class="method-option">
+            <div class="auth-method-section">
+                <h3 style="color: #512da8; margin-top: 0;">Are you a new User?</h3>
+                <div class="user-selection">
+                    <label class="user-option">
                         <input type="radio" name="user_type" value="register" checked>
-                        <span class="method-label">New User/Register</span>
+                        <span class="user-label">New User/Register</span>
                     </label>
-                    <label class="method-option">
+                    <label class="user-option">
                         <input type="radio" name="user_type" value="login">
-                        <span class="method-label">Existing User/Login</span>
+                        <span class="user-label">Existing User/Login</span>
                     </label>
+                </div>
             </div>
             <input type="text" name="username" id="username" placeholder="👤 Enter your username" required>
             
