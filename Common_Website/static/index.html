@@ -425,7 +425,7 @@
         let audioBlob;
         let isRecording = false;
         let audioStream;
-        console.log('Initializing biometric login system...');
+        
         // Face capture variables
         let videoStream;
         let isCameraActive = false;
@@ -460,10 +460,10 @@
         const fingerprintSection = document.getElementById('fingerprintSection');
         const faceSection = document.getElementById('faceSection');
         const fingerprintInput = document.getElementById('fingerprintInput');
-        console.log('Initializing biometric login system...');
+        
         // Authentication method switching
-        function switchAuthMethod(selectedMethod) {
-            //const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
+        function switchAuthMethod() {
+            const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
             
             // Hide all sections first
             voiceSection.style.display = 'none';
@@ -499,9 +499,9 @@
         }
 
         // Add event listeners for all radio buttons
-        voiceMethodRadio.addEventListener('change', switchAuthMethod('voice'));
-        fingerprintMethodRadio.addEventListener('change', switchAuthMethod('fingerprint'));
-        faceMethodRadio.addEventListener('change', switchAuthMethod('face'));
+        voiceMethodRadio.addEventListener('change', switchAuthMethod);
+        fingerprintMethodRadio.addEventListener('change', switchAuthMethod);
+        faceMethodRadio.addEventListener('change', switchAuthMethod);
 
         // Fingerprint file change handler
         fingerprintInput.addEventListener('change', function() {
@@ -648,18 +648,14 @@
             faceStatus.style.color = '#c62828';
         }
 
-        // Voice recording functionality (existing code)
+        // Voice recording functionality
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showMessage('Voice recording is not supported in this browser', 'error');
             disableVoiceFeatures();
         }
-        document.getElementById('username').addEventListener('input', function() {
-            const username = this.value;
-            document.getElementById('promptName').textContent = username || '[Enter your name above]';
-            document.getElementById('promptId').textContent = username || '[Enter your username above]';
-        });
-        startBtn.addEventListener('click', startRecording());
-        stopBtn.addEventListener('click', stopRecording());
+
+        startBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
 
         async function startRecording() {
             try {
@@ -673,7 +669,7 @@
                         sampleRate: 16000
                     } 
                 });
-                console.log('Audio stream started:');
+                console.log('Audio stream started');
                 const options = {
                     mimeType: 'audio/webm;codecs=opus'
                 };
@@ -815,196 +811,198 @@
                 for (let i = 0; i < string.length; i++) {
                     view.setUint8(offset + i, string.charCodeAt(i));
                 }
-        }};
-// This integrates your frontend with the Flask backend
-
-// Update the existing event listeners for register and login buttons
-registerBtn.addEventListener('click', handleAuth('register'));
-loginBtn.addEventListener('click', handleAuth('login'));
-
-// Update username display in voice prompt
-
-
-async function handleAuth(selectedMode) {
-    const username = document.getElementById('username').value.trim();
-    if (!username) {    
-        showMessage('Please enter a username', 'error');
-        return;
-    }
-
-    
-    const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
-    
-    showMessage(`Processing ${selectedMode}...`, 'processing');
-    disableSubmitButtons();
-
-    try {
-        let requestData;
-        
-        if (selectedMethod === 'voice') {
-            const voiceData = document.getElementById('voiceData').value;
-            if (!voiceData) {
-                showMessage('Please record your voice first', 'error');
-                enableSubmitButtons();
-                return;
-            }
-            
-            requestData = {
-                username: username,
-                auth_method: 'voice',
-                voice_data: voiceData
             };
             
-        } else if (selectedMethod === 'face') {
-            const faceData = document.getElementById('faceData').value;
-            if (!faceData) {
-                showMessage('Please capture your face first', 'error');
-                enableSubmitButtons();
-                return;
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(36, 'data');
+            view.setUint32(40, pcmData.length * 2, true);
+            
+            const offset = 44;
+            for (let i = 0; i < pcmData.length; i++) {
+                view.setInt16(offset + i * 2, pcmData[i], true);
             }
             
-            requestData = {
-                username: username,
-                auth_method: 'face',
-                face_data: faceData
-            };
-            
-        } else if (selectedMethod === 'fingerprint') {
-            const fingerprintFile = document.getElementById('fingerprintInput').files[0];
-            if (!fingerprintFile) {
-                showMessage('Please select a fingerprint image', 'error');
-                enableSubmitButtons();
-                return;
-            }
-            
-            // Convert file to base64
-            const base64Data = await fileToBase64(fingerprintFile);
-            requestData = {
-                username: username,
-                auth_method: 'fingerprint',
-                data_b64: base64Data
-            };
+            return arrayBuffer;
         }
 
-        if (selectedMode=='register') {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
+        function disableVoiceFeatures() {
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+            status.textContent = 'Voice recording not available';
+            status.style.color = '#c62828';
+        }
+
+        // Event handlers for register and login buttons
+        registerBtn.addEventListener('click', () => handleAuth('register'));
+        loginBtn.addEventListener('click', () => handleAuth('login'));
+
+        // Update username display in voice prompt
+        document.getElementById('username').addEventListener('input', function() {
+            const username = this.value;
+            document.getElementById('promptName').textContent = username || '[Enter your name above]';
+            document.getElementById('promptId').textContent = username || '[Enter your username above]';
+        });
+
+        async function handleAuth(selectedMode) {
+            const username = document.getElementById('username').value.trim();
+            if (!username) {    
+                showMessage('Please enter a username', 'error');
+                return;
+            }
+            
+            const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
+            
+            showMessage(`Processing ${selectedMode}...`, 'processing');
+            disableSubmitButtons();
+
+            try {
+                let requestData;
+                
+                if (selectedMethod === 'voice') {
+                    const voiceData = document.getElementById('voiceData').value;
+                    if (!voiceData) {
+                        showMessage('Please record your voice first', 'error');
+                        enableSubmitButtons();
+                        return;
+                    }
+                    
+                    requestData = {
+                        username: username,
+                        auth_method: 'voice',
+                        voice_data: voiceData
+                    };
+                    
+                } else if (selectedMethod === 'face') {
+                    const faceData = document.getElementById('faceData').value;
+                    if (!faceData) {
+                        showMessage('Please capture your face first', 'error');
+                        enableSubmitButtons();
+                        return;
+                    }
+                    
+                    requestData = {
+                        username: username,
+                        auth_method: 'face',
+                        face_data: faceData
+                    };
+                    
+                } else if (selectedMethod === 'fingerprint') {
+                    const fingerprintFile = document.getElementById('fingerprintInput').files[0];
+                    if (!fingerprintFile) {
+                        showMessage('Please select a fingerprint image', 'error');
+                        enableSubmitButtons();
+                        return;
+                    }
+                    
+                    // Convert file to base64
+                    const base64Data = await fileToBase64(fingerprintFile);
+                    requestData = {
+                        username: username,
+                        auth_method: 'fingerprint',
+                        data_b64: base64Data
+                    };
+                }
+
+                if (selectedMode=='register') {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showMessage(result.message, 'success');
+                    } else {
+                        showMessage(result.message, 'error');
+                    }
+                } else if (selectedMode=='login'){
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
+                    } else {
+                        showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
+                    }
+                }   
+                
+            } catch (error) {
+                console.error(`${selectedMode} error:`, error);
+                showMessage(`${selectedMode} failed. Please try again.`, 'error');
+            } finally {
+                enableSubmitButtons();
+            }
+        }
+
+        // Helper function to convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove the data URL prefix (data:image/jpeg;base64,)
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
             });
+        }
 
-            const result = await response.json();
+        // Update the existing showMessage function to handle different message types
+        function showMessage(text, type = 'success') {
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
             
-            if (result.success) {
-                showMessage(result.message, 'success');
-            } else {
-                showMessage(result.message, 'error');
+            // Add loading spinner for processing messages
+            if (type === 'processing') {
+                const spinner = document.createElement('span');
+                spinner.className = 'loading-spinner';
+                messageDiv.insertBefore(spinner, messageDiv.firstChild);
             }
-        } else if (selectedMode=='login'){
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            });
-
-            const result = await response.json();
             
-            if (result.success) {
-                showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
-            } else {
-                showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    messageDiv.style.display = 'none';
+                }, 5000);
             }
-        }   
-        
-    } catch (error) {
-        console.error(`${selectedMode} error:`, error);
-        showMessage(`${selectedMode} failed. Please try again.`, 'error');
-    } finally {
-        enableSubmitButtons();
-    }
-}
-
-// Helper function to convert file to base64
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            // Remove the data URL prefix (data:image/jpeg;base64,)
-            const base64 = reader.result.split(',')[1];
-            resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// Update the existing showMessage function to handle different message types
-function showMessage(text, type = 'success') {
-    messageDiv.textContent = text;
-    messageDiv.className = `message ${type}`;
-    messageDiv.style.display = 'block';
-    
-    // Add loading spinner for processing messages
-    if (type === 'processing') {
-        const spinner = document.createElement('span');
-        spinner.className = 'loading-spinner';
-        messageDiv.insertBefore(spinner, messageDiv.firstChild);
-    }
-    
-    // Auto-hide success messages after 5 seconds
-    if (type === 'success') {
-        setTimeout(() => {
-            messageDiv.style.display = 'none';
-        }, 5000);
-    }
-}
-
-// Update button state management
-function disableSubmitButtons() {
-    registerBtn.disabled = true;
-    loginBtn.disabled = true;
-}
-
-function enableSubmitButtons() {
-    registerBtn.disabled = false;
-    loginBtn.disabled = false;
-}
-
-// Check if the current method has required data
-function checkSubmitRequirements() {
-    const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
-    
-    if (selectedMethod === 'voice') {
-        if (voiceDataInput.value) {
-            enableSubmitButtons();
-        } else {
-            disableSubmitButtons();
         }
-    } else if (selectedMethod === 'fingerprint') {
-        if (fingerprintInput.files.length > 0) {
-            enableSubmitButtons();
-        } else {
-            disableSubmitButtons();
-        }
-    } else if (selectedMethod === 'face') {
-        if (faceDataInput.value) {
-            enableSubmitButtons();
-        } else {
-            disableSubmitButtons();
-        }
-    }
-}
 
-// Add error handling for unsupported methods
-function handleUnsupportedMethod(method) {
-    showMessage(`${method} authentication is not yet implemented. Please use voice authentication.`, 'error');
-    // Switch back to voice method
-    //document.getElementById('voiceMethod').checked = true;
-    voiceSection.style.display = 'block';
-    fingerprintSection.style.display = 'none';
-    faceSection.style.display = 'none';
-}
+        // Update button state management
+        function disableSubmitButtons() {
+            registerBtn.disabled = true;
+            loginBtn.disabled = true;
+        }
+
+        function enableSubmitButtons() {
+            registerBtn.disabled = false;
+            loginBtn.disabled = false;
+        }
+
+        // Initialize the form
+        switchAuthMethod();
+        checkSubmitRequirements();
+    </script>
+</body>
