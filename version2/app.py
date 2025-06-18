@@ -7,6 +7,7 @@ import os
 import librosa
 from resemblyzer import VoiceEncoder
 import io
+import face_recognition
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import json
@@ -300,12 +301,17 @@ class FaceAuthenticator(BiometricAuthenticator):
         super().__init__("face", Config.FACE_THRESHOLD)
     
     def preprocess_data(self, image_bytes: bytes) -> Any:
-        # TODO: Implement face preprocessing
-        raise NotImplementedError("Face authentication not yet implemented")
+        # Load image from bytes
+        image = face_recognition.load_image_file(io.BytesIO(image_bytes))
+        return image  # Return the loaded image for encoding
     
     def extract_features(self, image_data: Any) -> np.ndarray:
-        # TODO: Implement face feature extraction
-        raise NotImplementedError("Face authentication not yet implemented")
+        # Get face encodings (features)
+        encodings = face_recognition.face_encodings(image_data)
+        if encodings:
+            return encodings[0]  # Use the first encoding if multiple faces are detected
+        else:
+            return np.array([])  # Return empty array if no faces found
 
 # Biometric Manager
 class BiometricManager:
@@ -327,7 +333,7 @@ class BiometricManager:
                 if method == "voice":
                     available.append(method)
                 elif method == "face":
-                    # available.append(method)  # Add when implemented
+                    available.append(method)  # Add when implemented
                     pass
                 elif method == "fingerprint":
                     available.append(method)
