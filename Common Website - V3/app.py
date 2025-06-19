@@ -63,6 +63,56 @@ class BiometricAuthenticator(ABC):
     def preprocess_data(self, data: Any) -> Any:
         """Preprocess the biometric data"""
         pass
+
+    @abstractmethod
+    def delete_features(self, user_id: str) -> bool:
+        """Delete biometric data (face or voice) for the user from the database, and remove user if all are null"""
+        conn = None
+        cursor = None
+        try:
+            conn = db_connection()
+            if not conn:
+                raise ValueError("Could not connect to database")
+
+            cursor = conn.cursor()
+            column_name = {
+                'face': 'face_data',
+                'voice': 'voice_data'
+            }.get(self.auth_type)
+
+            if not column_name:
+                raise ValueError(f"Unsupported auth type for deletion: {self.auth_type}")
+
+            update_query = f"""
+                UPDATE users_biometrics
+                SET {column_name} = NULL
+                WHERE username = %s
+            """
+            cursor.execute(update_query, (user_id,))
+            conn.commit()
+
+            check_query = """
+                SELECT voice_data, face_data, fingerprint_data
+                FROM users_biometrics
+                WHERE username = %s
+            """
+            cursor.execute(check_query, (user_id,))
+            result = cursor.fetchone()
+
+            if result and all(field is None for field in result):
+                print(f"All biometrics null for '{user_id}'. Deleting user entry.")
+                delete_query = "DELETE FROM users_biometrics WHERE username = %s"
+                cursor.execute(delete_query, (user_id,))
+                conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error deleting {self.auth_type} data for user '{user_id}': {e}")
+            return False
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn is not None and conn.is_connected():
+                conn.close()
         
     def calculate_similarity(self, features1: np.ndarray, features2: np.ndarray) -> float:
         """Calculate similarity between two feature vectors"""
@@ -396,6 +446,53 @@ class FingerprintAuthenticator(BiometricAuthenticator):
             if conn is not None and conn.is_connected():
                 conn.close()
 
+    def delete_features(self, user_id: str) -> bool:
+        """Delete fingerprint data for the user and remove user if all biometrics are null"""
+        conn = None
+        cursor = None
+        try:
+            conn = db_connection()
+            if not conn:
+                raise ValueError("Could not connect to database")
+
+            cursor = conn.cursor()
+
+            # Step 1: Nullify fingerprint_data
+            update_query = """
+                UPDATE users_biometrics
+                SET fingerprint_data = NULL
+                WHERE username = %s
+            """
+            cursor.execute(update_query, (user_id,))
+            conn.commit()
+
+            # Step 2: Check if all biometrics are now NULL
+            check_query = """
+                SELECT voice_data, face_data, fingerprint_data
+                FROM users_biometrics
+                WHERE username = %s
+            """
+            cursor.execute(check_query, (user_id,))
+            result = cursor.fetchone()
+
+            if result and all(field is None for field in result):
+                print(f"All biometrics null for '{user_id}'. Deleting user entry.")
+                delete_query = "DELETE FROM users_biometrics WHERE username = %s"
+                cursor.execute(delete_query, (user_id,))
+                conn.commit()
+
+            return True
+
+        except Exception as e:
+            print(f"Error deleting fingerprint data for user '{user_id}': {e}")
+            return False
+
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn is not None and conn.is_connected():
+                conn.close()
+
 
 # Placeholder class for future face authentication
 class FaceAuthenticator(BiometricAuthenticator):
@@ -685,24 +782,17 @@ def delete_user_data(user_id):
     print(f"Received /api/user/{user_id}/delete request")
     deleted_methods = []
     errors = []
-    
+
     for method_name, authenticator in biometric_manager.authenticators.items():
         try:
-            feature_path = os.path.join(authenticator.data_dir, f"{user_id}.npy")
-            if os.path.exists(feature_path):
-                os.remove(feature_path)
+            success = authenticator.delete_features(user_id)
+            if success:
                 deleted_methods.append(method_name)
-            # For fingerprint, we save as .jpg or .png
-            if method_name == "fingerprint":
-                for ext in {'.jpg', '.jpeg', '.png'}:
-                    image_path = os.path.join(authenticator.data_dir, f"{user_id}{ext}")
-                    if os.path.exists(image_path):
-                        os.remove(image_path)
-                        if method_name not in deleted_methods:
-                            deleted_methods.append(method_name)
+            else:
+                errors.append(f"Failed to delete {method_name} data for user '{user_id}'")
         except Exception as e:
             errors.append(f"Error deleting {method_name} data: {str(e)}")
-    
+
     if errors:
         return jsonify({
             "success": False,
