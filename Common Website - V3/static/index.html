@@ -67,6 +67,31 @@
             border-radius: 10px;
             background-color: #fafafa;
         }
+        .user-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .user-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .user-option:hover {
+            background-color: #e3f2fd;
+        }
+        .user-option input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        .user-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
         .method-selection {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
@@ -314,6 +339,19 @@
     <div class="container">
         <h1>🔒 Biometric Login System</h1>
         <form id="authForm">
+            <div class="auth-method-section">
+                <h3 style="color: #512da8; margin-top: 0;">Are you a new User?</h3>
+                <div class="user-selection">
+                    <label class="user-option">
+                        <input type="radio" name="user_type" value="register" checked>
+                        <span class="user-label">New User/Register</span>
+                    </label>
+                    <label class="user-option">
+                        <input type="radio" name="user_type" value="login">
+                        <span class="user-label">Existing User/Login</span>
+                    </label>
+                </div>
+            </div>
             <input type="text" name="username" id="username" placeholder="👤 Enter your username" required>
             
             <!-- Authentication Method Selection -->
@@ -372,7 +410,7 @@
                         Please upload a clear image of your fingerprint
                     </span>
                 </div>
-                <input type="file" name="fingerprint" id="fingerprintInput" accept="image/*">
+                <input type="file" name="fingerprint" id="fingerprintInput" accept="image/jpeg,image/png">
             </div>
 
             <!-- Face Authentication Section -->
@@ -413,8 +451,7 @@
             <input type="hidden" name="voice_data" id="voiceData">
             <input type="hidden" name="face_data" id="faceData">
             
-            <button type="button" id="registerBtn">Register</button>
-            <button type="button" id="loginBtn">Login</button>
+            <button type="button" id="submitBtn">Submit</button>
         </form>
         <div id="message" class="message" style="display: none"></div>
     </div>
@@ -450,8 +487,7 @@
         const capturedImage = document.getElementById('capturedImage');
         const faceDataInput = document.getElementById('faceData');
         
-        const registerBtn = document.getElementById('registerBtn');
-        const loginBtn = document.getElementById('loginBtn');
+        const submitBtn = document.getElementById('submitBtn');
         const messageDiv = document.getElementById('message');
         const voiceMethodRadio = document.getElementById('voiceMethod');
         const fingerprintMethodRadio = document.getElementById('fingerprintMethod');
@@ -460,7 +496,7 @@
         const fingerprintSection = document.getElementById('fingerprintSection');
         const faceSection = document.getElementById('faceSection');
         const fingerprintInput = document.getElementById('fingerprintInput');
-        
+
         // Authentication method switching
         function switchAuthMethod() {
             const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
@@ -505,6 +541,11 @@
 
         // Fingerprint file change handler
         fingerprintInput.addEventListener('change', function() {
+            checkSubmitRequirements();
+        });
+
+        const userChange = document.querySelector('input[value="register"]');
+        userChange.addEventListener('change', function() {
             checkSubmitRequirements();
         });
 
@@ -842,9 +883,11 @@
             status.style.color = '#c62828';
         }
 
-        // Event handlers for register and login buttons
-        registerBtn.addEventListener('click', () => handleAuth('register'));
-        loginBtn.addEventListener('click', () => handleAuth('login'));
+        // Event handler for submit button
+        submitBtn.addEventListener('click', () => {
+            const isNewUser = document.querySelector('input[name="user_type"]:checked').value;
+            handleAuth(isNewUser);
+        });
 
         // Update username display in voice prompt
         document.getElementById('username').addEventListener('input', function() {
@@ -866,8 +909,8 @@
             disableSubmitButtons();
 
             try {
-                let requestData;
-                console.log('try block initiated');
+                let response;
+
                 if (selectedMethod === 'voice') {
                     const voiceData = document.getElementById('voiceData').value;
                     if (!voiceData) {
@@ -876,12 +919,20 @@
                         return;
                     }
                     
-                    requestData = {
+                    const requestData = {
                         username: username,
                         auth_method: 'voice',
                         voice_data: voiceData
                     };
-                    console.log('voice data logged');
+                    
+                    response = await fetch(`/api/${selectedMode}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
                 } else if (selectedMethod === 'face') {
                     const faceData = document.getElementById('faceData').value;
                     if (!faceData) {
@@ -890,12 +941,20 @@
                         return;
                     }
                     
-                    requestData = {
+                    const requestData = {
                         username: username,
                         auth_method: 'face',
                         face_data: faceData
                     };
                     
+                    response = await fetch(`/api/${selectedMode}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
                 } else if (selectedMethod === 'fingerprint') {
                     const fingerprintFile = document.getElementById('fingerprintInput').files[0];
                     if (!fingerprintFile) {
@@ -904,53 +963,51 @@
                         return;
                     }
                     
-                    // Convert file to base64
-                    const base64Data = await fileToBase64(fingerprintFile);
-                    requestData = {
-                        username: username,
-                        auth_method: 'fingerprint',
-                        data_b64: base64Data
-                    };
+                    // CHANGED: Use FormData to send the fingerprint file directly instead of converting to base64
+                    const formData = new FormData();
+                    formData.append('username', username);
+                    formData.append('auth_method', 'fingerprint');
+                    formData.append('fingerprint', fingerprintFile);
+
+                    // ADDED: Console logs to debug the FormData contents before sending
+                    console.log('Preparing to send FormData for fingerprint:');
+                    console.log('FormData username:', formData.get('username'));
+                    console.log('FormData auth_method:', formData.get('auth_method'));
+                    console.log('FormData fingerprint file:', formData.get('fingerprint'));
+                    console.log('Fingerprint file details:', {
+                        name: fingerprintFile.name,
+                        size: fingerprintFile.size,
+                        type: fingerprintFile.type
+                    });
+
+                    // CHANGED: Send FormData instead of JSON, removing Content-Type header to let the browser set multipart/form-data
+                    response = await fetch(`/api/${selectedMode}`, {
+                        method: 'POST',
+                        body: formData // Let the browser set Content-Type to multipart/form-data
+                    });
                 }
 
-                if (selectedMode=='register') {
-                    console.log('register mode initiated');
-                    const response = await fetch('api/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestData)
-                    });
+                // ADDED: Debug response to ensure it's JSON and log any issues
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.log('Non-JSON response received:', text.slice(0, 100) + '...');
+                    throw new Error(`Expected JSON, received ${contentType || 'no content-type'}`);
+                }
 
-                    const result = await response.json();
-                    console.log('register response received:', result);
-                    if (result.success) {
-                        showMessage(result.message, 'success');
-                    } else {
-                        showMessage(result.message, 'error');
-                    }
-                } else if (selectedMode=='login'){
-                    const response = await fetch('api/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestData)
-                    });
+                // ADDED: Log the response JSON for debugging
+                const result = await response.json();
+                console.log('Response JSON:', result);
 
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
-                    } else {
-                        showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
-                    }
-                }   
+                if (result.success) {
+                    showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
+                } else {
+                    showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
+                }
                 
             } catch (error) {
                 console.error(`${selectedMode} error:`, error);
-                showMessage(`${selectedMode} failed. Please try again.`, 'error');
+                showMessage(`${selectedMode} failed: ${error.message}`, 'error');
             } finally {
                 enableSubmitButtons();
             }
@@ -993,13 +1050,11 @@
 
         // Update button state management
         function disableSubmitButtons() {
-            registerBtn.disabled = true;
-            loginBtn.disabled = true;
+            submitBtn.disabled = true;
         }
 
         function enableSubmitButtons() {
-            registerBtn.disabled = false;
-            loginBtn.disabled = false;
+            submitBtn.disabled = false;
         }
 
         // Initialize the form
@@ -1007,3 +1062,4 @@
         checkSubmitRequirements();
     </script>
 </body>
+</html>
