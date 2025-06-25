@@ -1,0 +1,11 @@
+applications:
+  - name: biometric-auth-app
+    memory: 256M
+    instances: 1
+    path: .
+    buildpack: python_buildpack
+    env:
+      DB_HOST: your-db-hostname
+      DB_USER: your-db-username
+      DB_PASSWORD: your-db-password
+      DB_NAME: biometric_auth

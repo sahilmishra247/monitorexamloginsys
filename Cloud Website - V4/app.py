@@ -21,10 +21,10 @@ CORS(app)
 
 # Configuration
 DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'authuser',
-    'password': 'securepass123',
-    'database': 'biometric_auth'
+    'host': os.getenv('DB_HOST'),
+    'user': os.getenv('DB_USER'),
+    'password': os.getenv('DB_PASSWORD'),
+    'database': os.getenv('DB_NAME')
 }
 class Config:
     SAMPLE_RATE = 16000
