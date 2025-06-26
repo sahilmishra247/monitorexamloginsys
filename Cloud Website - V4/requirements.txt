@@ -3,7 +3,9 @@ flask-cors
 numpy
 librosa
 resemblyzer
-face_recognition
-opencv-python
+scipy
+soundfile
+numpy
+opencv-python-headless
 mysql-connector-python
 gunicorn

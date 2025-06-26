@@ -10,8 +10,6 @@ import io
 import face_recognition
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-import json
-from datetime import datetime
 import cv2
 import mysql.connector
 from mysql.connector import Error
@@ -24,7 +22,8 @@ DB_CONFIG = {
     'host': os.getenv('DB_HOST'),
     'user': os.getenv('DB_USER'),
     'password': os.getenv('DB_PASSWORD'),
-    'database': os.getenv('DB_NAME')
+    'database': os.getenv('DB_NAME'),
+    'ssl_ca': '/etc/ssl/cert.pem',  # Optional SSL CA file
 }
 class Config:
     SAMPLE_RATE = 16000
@@ -774,6 +773,19 @@ def get_user_registered_methods(user_id):
         "user_id": user_id,
         "registered_methods": registered_methods
     })
+
+@app.route('/api/db-test')
+def db_test():
+    try:
+        conn = db_connection()
+        if conn:
+            cursor = conn.cursor()
+            cursor.execute("SHOW TABLES;")
+            tables = cursor.fetchall()
+            return jsonify([table[0] for table in tables])
+        return "Connection failed", 500
+    except Exception as e:
+        return str(e), 500
 
 @app.route('/api/user/<user_id>/delete', methods=['DELETE'])
 def delete_user_data(user_id):
