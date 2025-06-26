@@ -1,6 +1,5 @@
 # Use prebuilt image that includes dlib + face_recognition
 FROM facefusion/face-recognition:latest
-
 # Environment config
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
