@@ -1,0 +1,9 @@
+flask
+flask-cors
+numpy
+librosa
+resemblyzer
+face_recognition
+opencv-python
+mysql-connector-python
+gunicorn
