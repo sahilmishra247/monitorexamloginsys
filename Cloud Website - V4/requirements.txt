@@ -1,9 +1,10 @@
 Flask==2.3.2
 gunicorn==20.1.0
-# Downgrade numpy to a version compatible with older scipy/resemblyzer on Python 3.9
-numpy==1.21.6 # This version is often more stable with older scientific libs
-librosa==0.9.1 # Downgrade librosa to be safe, as it depends on numpy/scipy
-resemblyzer==0.1.4 # Keep this version as it's what you have
+# Try a widely available numpy version for Python 3.9
+numpy==1.23.5
+scipy==1.9.3 # Explicitly add a compatible scipy version
+librosa==0.9.1
+resemblyzer==0.1.4
 face_recognition==1.3.0
 opencv-python==4.9.0.80
 mysql-connector-python==8.3.0
