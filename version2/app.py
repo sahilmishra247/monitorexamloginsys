@@ -20,7 +20,7 @@ CORS(app)
 # Configuration
 class Config:
     SAMPLE_RATE = 16000
-    VOICE_THRESHOLD = 0.85
+    VOICE_THRESHOLD = 0.75
     EMBEDDING_DIR = "monitorexamloginsys/embeddings"
     STATIC_DIR = "static"
     
