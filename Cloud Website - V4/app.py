@@ -7,12 +7,21 @@ import os
 import librosa
 from resemblyzer import VoiceEncoder
 import io
-import face_recognition
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import cv2
 import mysql.connector
 from mysql.connector import Error
+
+try:
+    import cv2
+    # Test if face recognition module is available
+    test_recognizer = cv2.face.LBPHFaceRecognizer_create()
+    print("OpenCV face recognition module loaded successfully")
+except AttributeError:
+    print("ERROR: OpenCV face recognition module not available")
+    print("Install opencv-contrib-python: pip install opencv-contrib-python")
+    exit(1)
 
 app = Flask(__name__)
 CORS(app)
@@ -23,16 +32,18 @@ DB_CONFIG = {
     'user': os.getenv('DB_USER'),
     'password': os.getenv('DB_PASSWORD'),
     'database': os.getenv('DB_NAME'),
-    'ssl_ca': '/etc/ssl/cert.pem',  # Optional SSL CA file
+    #'ssl_disabled': True,  # Temporarily disable SSL for testing
+    # 'ssl_ca': '/etc/ssl/cert.pem',  # Comment out for now
 }
+
 class Config:
     SAMPLE_RATE = 16000
     VOICE_THRESHOLD = 0.75
     EMBEDDING_DIR = "monitorexamloginsys/embeddings"
     STATIC_DIR = "static"
     
-    # Future thresholds for other biometric methods
-    FACE_THRESHOLD = 0.90
+    # Thresholds for biometric methods
+    FACE_THRESHOLD = 0.70  # Adjusted for OpenCV's LBPH recognizer
     FINGERPRINT_THRESHOLD = 200  # Adjusted to match app.py's threshold of 200 matches
 
 def db_connection():
@@ -41,6 +52,7 @@ def db_connection():
     except Error as e:
         print(f"Database connection error: {e}")
         return None
+
 # Ensure directories exist
 os.makedirs(Config.EMBEDDING_DIR, exist_ok=True)
 os.makedirs(Config.STATIC_DIR, exist_ok=True)
@@ -190,23 +202,11 @@ class BiometricAuthenticator(ABC):
     def register_user(self, user_id: str, data: Any) -> Dict[str, Any]:
         """Register a new user"""
         print(f"Registering user '{user_id}' for {self.auth_type}")
-        # Check if user already exists
-        if self.load_features(user_id) is not None:
-            return {
-                "success": False,
-                "message": f"User '{user_id}' already registered for {self.auth_type}.",
-                "auth_type": self.auth_type
-            }
         
         try:
             # Process data and extract features
             processed_data = self.preprocess_data(data)
-            if isinstance(processed_data, tuple):
-                image_data, extension = processed_data
-                features = self.extract_features(image_data)
-                features['extension'] = extension
-            else:
-                features = self.extract_features(processed_data)
+            features = self.extract_features(processed_data)
             
             # Save features
             if self.save_features(user_id, features):
@@ -245,14 +245,13 @@ class BiometricAuthenticator(ABC):
         try:
             # Process data and extract features
             processed_data = self.preprocess_data(data)
-            if isinstance(processed_data, tuple):
-                image_data, extension = processed_data
-                test_features = self.extract_features(image_data)
-            else:
-                test_features = self.extract_features(processed_data)
+            test_features = self.extract_features(processed_data)
             
-            # Calculate similarity
-            similarity = self.calculate_similarity(test_features, stored_features)
+            # Calculate similarity based on auth type
+            if self.auth_type == "fingerprint":
+                similarity = self.calculate_similarity(test_features, stored_features)
+            else:
+                similarity = self.calculate_similarity(test_features, stored_features)
             
             if similarity >= self.threshold:
                 return {
@@ -295,36 +294,31 @@ class VoiceAuthenticator(BiometricAuthenticator):
         print("Extracting voice features")
         return self.encoder.embed_utterance(data)
 
-# Updated Fingerprint Authentication Implementation
+# Fingerprint Authentication Implementation
 class FingerprintAuthenticator(BiometricAuthenticator):
     def __init__(self):
         super().__init__("fingerprint", Config.FINGERPRINT_THRESHOLD)
         self.orb = cv2.ORB_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        self.allowed_extensions = {'.jpg', '.jpeg', '.png'}  # Define allowed file extensions
+        self.allowed_extensions = {'.jpg', '.jpeg', '.png'}
     
-    def get_file_extension(self, filename: str) -> str:
-        """Extract the file extension from the filename"""
-        return os.path.splitext(filename)[1].lower()
-    
-    def preprocess_data(self, fingerprint_file: Any) -> np.ndarray:
-        """Preprocess fingerprint image data by reading the uploaded file"""
+    def preprocess_data(self, data):
+        """Preprocess fingerprint image data"""
         try:
-            # Validate file extension
-            extension = self.get_file_extension(fingerprint_file.filename)
-            if extension not in self.allowed_extensions:
-                raise ValueError(f"Unsupported file format: {extension}. Use JPG or PNG.")
+            if hasattr(data, 'read'):  # File-like object
+                image_bytes = data.read()
+            else:
+                image_bytes = data
             
-            print(f"Processing file: {fingerprint_file.filename}")
-            # Read the file directly into a numpy array
-            nparr = np.frombuffer(fingerprint_file.read(), np.uint8)
+            # Convert bytes to numpy array
+            nparr = np.frombuffer(image_bytes, np.uint8)
             # Decode image
             image = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
             
             if image is None:
                 raise ValueError("Could not decode fingerprint image")
             
-            return image, extension
+            return image
         except Exception as e:
             print(f"Preprocessing error: {str(e)}")
             raise ValueError(f"Error preprocessing fingerprint image: {str(e)}")
@@ -340,65 +334,46 @@ class FingerprintAuthenticator(BiometricAuthenticator):
                 raise ValueError("No keypoints detected in fingerprint image")
             
             return {
-                'keypoints': keypoints,
                 'descriptors': descriptors,
-                'image': image_data  # Store the image for saving
+                'image': image_data
             }
         except Exception as e:
             print(f"Error extracting fingerprint features: {str(e)}")
             raise ValueError(f"Error extracting fingerprint features: {str(e)}")
     
-    def calculate_similarity(self, features1: dict, features2: dict) -> float:
-        """Calculate similarity between two fingerprints using ORB matching"""
-        try:
-            print("Calculating fingerprint similarity")
-            des1 = features1['descriptors']
-            des2 = features2['descriptors']
-            
-            if des1 is None or des2 is None:
-                return 0.0
-            
-            # Match descriptors
-            matches = self.bf.match(des1, des2)
-            
-            # Sort matches by distance
-            matches = sorted(matches, key=lambda x: x.distance)
-            
-            # Return the number of matches as the similarity score
-            return float(len(matches))
-        except Exception as e:
-            print(f"Error calculating fingerprint similarity: {e}")
-            return 0.0
-    
-    def save_features(self, user_id: str, features: dict) -> bool:
-        """Save the fingerprint image in the database"""
+    def save_features(self, user_id: str, features: np.ndarray) -> bool:
+        """Save voice features to database"""
         cursor = None
         conn = None
         try:
-            success, buffer = cv2.imencode('.png', features['image'])
-            if not success:
-                raise ValueError("Failed to encode fingerprint image")
-
-            image_bytes = buffer.tobytes()
-
             conn = db_connection()
-            if not conn:
-                raise ValueError("Could not establish DB connection")
-
+            if conn is None:
+                raise ValueError("Database connection failed")
+            
             cursor = conn.cursor()
 
-            query = """
-                INSERT INTO users_biometrics (username, fingerprint_data)
-                VALUES (%s, %s)
-            """
-            cursor.execute(query, (user_id, image_bytes))
+            # Check if user exists and update or insert
+            cursor.execute("SELECT id FROM users_biometrics WHERE username = %s", (user_id,))
+            if cursor.fetchone():
+                query = """
+                    UPDATE users_biometrics 
+                    SET voice_data = %s
+                    WHERE username = %s
+                """
+                cursor.execute(query, (features.tobytes(), user_id))
+            else:
+                query = """
+                    INSERT INTO users_biometrics (username, voice_data)
+                    VALUES (%s, %s)
+                """
+                cursor.execute(query, (user_id, features.tobytes()))
+
             conn.commit()
+            print("Successfully saved voice data")
             return True
-
         except Exception as e:
-            print(f"Error saving fingerprint image to database: {e}")
+            print(f"Error saving voice features: {e}")
             return False
-
         finally:
             if cursor is not None:
                 cursor.close()
@@ -406,7 +381,7 @@ class FingerprintAuthenticator(BiometricAuthenticator):
                 conn.close()
 
     def load_features(self, user_id: str) -> Optional[dict]:
-        """Load the fingerprint image from DB and extract features"""
+        """Load fingerprint features from database"""
         cursor = None
         conn = None
         try:
@@ -420,7 +395,7 @@ class FingerprintAuthenticator(BiometricAuthenticator):
             row = cursor.fetchone()
 
             if row is None or row[0] is None:
-                print(f"No {self.auth_type} features found for user '{user_id}'")
+                print(f"No fingerprint features found for user '{user_id}'")
                 return None
             
             (row_data,) = row
@@ -431,11 +406,168 @@ class FingerprintAuthenticator(BiometricAuthenticator):
                 print("Failed to decode fingerprint image from DB")
                 return None
 
+            # Extract features from the loaded image
             features = self.extract_features(image)
             return features
 
         except Exception as e:
-            print(f"Error loading fingerprint image from database: {e}")
+            print(f"Error loading fingerprint from database: {e}")
+            return None
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn is not None and conn.is_connected():
+                conn.close()
+
+# Face Authentication Implementation using OpenCV
+class FaceAuthenticator(BiometricAuthenticator):
+    def __init__(self):
+        super().__init__("face", Config.FACE_THRESHOLD)
+        # Initialize face detector and recognizer
+        self.face_detector = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+        self.face_recognizer = cv2.face.LBPHFaceRecognizer_create()
+    
+    def preprocess_data(self, image_bytes: bytes) -> np.ndarray:
+        """Preprocess face image data"""
+        try:
+            # Convert bytes to numpy array
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            # Decode image
+            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if image is None:
+                raise ValueError("Could not decode face image")
+            
+            # Convert to grayscale (face detection works better on grayscale)
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            
+            # Detect faces
+            faces = self.face_detector.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30))
+            
+            if len(faces) == 0:
+                raise ValueError("No faces detected in the image")
+            
+            # Return the first face found
+            (x, y, w, h) = faces[0]
+            face_roi = gray[y:y+h, x:x+w]
+            
+            # Resize to a standard size for consistency
+            face_roi = cv2.resize(face_roi, (100, 100))
+            
+            return face_roi
+        except Exception as e:
+            print(f"Preprocessing error: {str(e)}")
+            raise ValueError(f"Error preprocessing face image: {str(e)}")
+    
+    def extract_features(self, face_image: np.ndarray) -> np.ndarray:
+        """Extract face features - return the preprocessed image itself"""
+        try:
+            return face_image
+        except Exception as e:
+            print(f"Error extracting face features: {str(e)}")
+            raise ValueError(f"Error extracting face features: {str(e)}")
+    
+    def calculate_similarity(self, features1: np.ndarray, features2: np.ndarray) -> float:
+        """Calculate similarity between two face images using OpenCV's LBPH recognizer"""
+        try:
+            # Train a temporary recognizer with one sample
+            self.face_recognizer.train([features1], np.array([0]))
+            
+            # Predict the label and confidence for the test image
+            label, confidence = self.face_recognizer.predict(features2)
+            
+            # Convert confidence to similarity score
+            # LBPH returns 0 for perfect match, higher values for worse matches
+            # We'll invert this to get a similarity score between 0 and 1
+            similarity = max(0, 1 - (confidence / 100))
+            return similarity
+        except Exception as e:
+            print(f"Error calculating face similarity: {e}")
+            return 0.0
+    
+    def save_features(self, user_id: str, features: np.ndarray) -> bool:
+        """Save face features to database"""
+        cursor = None
+        conn = None
+        try:
+            # Encode the face image as PNG
+            success, buffer = cv2.imencode('.png', features)
+            if not success:
+                raise ValueError("Failed to encode face image")
+
+            image_bytes = buffer.tobytes()
+
+            conn = db_connection()
+            if not conn:
+                raise ValueError("Could not establish DB connection")
+
+            cursor = conn.cursor()
+
+            # Check if user exists and update or insert
+            cursor.execute("SELECT id FROM users_biometrics WHERE username = %s", (user_id,))
+            if cursor.fetchone():
+                query = """
+                    UPDATE users_biometrics 
+                    SET face_data = %s
+                    WHERE username = %s
+                """
+                cursor.execute(query, (image_bytes, user_id))
+            else:
+                query = """
+                    INSERT INTO users_biometrics (username, face_data)
+                    VALUES (%s, %s)
+                """
+                cursor.execute(query, (user_id, image_bytes))
+
+            conn.commit()
+            print("Successfully saved face data")
+            return True
+
+        except Exception as e:
+            print(f"Error saving face image to database: {e}")
+            return False
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn is not None and conn.is_connected():
+                conn.close()
+
+    def load_features(self, user_id: str) -> Optional[np.ndarray]:
+        """Load the face image from DB"""
+        cursor = None
+        conn = None
+        try:
+            conn = db_connection()
+            if not conn:
+                raise ValueError("Could not establish DB connection")
+
+            cursor = conn.cursor()
+            query = "SELECT face_data FROM users_biometrics WHERE username = %s"
+            cursor.execute(query, (user_id,))
+            row = cursor.fetchone()
+
+            if row is None or row[0] is None:
+                print(f"No {self.auth_type} features found for user '{user_id}'")
+                return None
+            
+            (row_data,) = row
+            image_data = np.frombuffer(row_data, np.uint8)
+            image = cv2.imdecode(image_data, cv2.IMREAD_GRAYSCALE)
+
+            if image is None:
+                print("Failed to decode face image from DB")
+                return None
+
+            return image
+
+        except Exception as e:
+            print(f"Error loading face image from database: {e}")
             return None
 
         finally:
@@ -444,74 +576,9 @@ class FingerprintAuthenticator(BiometricAuthenticator):
             if conn is not None and conn.is_connected():
                 conn.close()
 
-    def delete_features(self, user_id: str) -> bool:
-        """Delete fingerprint data for the user and remove user if all biometrics are null"""
-        conn = None
-        cursor = None
-        try:
-            conn = db_connection()
-            if not conn:
-                raise ValueError("Could not connect to database")
-
-            cursor = conn.cursor()
-
-            # Step 1: Nullify fingerprint_data
-            update_query = """
-                UPDATE users_biometrics
-                SET fingerprint_data = NULL
-                WHERE username = %s
-            """
-            cursor.execute(update_query, (user_id,))
-            conn.commit()
-
-            # Step 2: Check if all biometrics are now NULL
-            check_query = """
-                SELECT voice_data, face_data, fingerprint_data
-                FROM users_biometrics
-                WHERE username = %s
-            """
-            cursor.execute(check_query, (user_id,))
-            result = cursor.fetchone()
-
-            if result and all(field is None for field in result):
-                print(f"All biometrics null for '{user_id}'. Deleting user entry.")
-                delete_query = "DELETE FROM users_biometrics WHERE username = %s"
-                cursor.execute(delete_query, (user_id,))
-                conn.commit()
-
-            return True
-
-        except Exception as e:
-            print(f"Error deleting fingerprint data for user '{user_id}': {e}")
-            return False
-
-        finally:
-            if cursor is not None:
-                cursor.close()
-            if conn is not None and conn.is_connected():
-                conn.close()
-
-
-# Placeholder class for future face authentication
-class FaceAuthenticator(BiometricAuthenticator):
-    def __init__(self):
-        super().__init__("face", Config.FACE_THRESHOLD)
-    
-    def preprocess_data(self, image_bytes: bytes) -> Any:
-        # Load image from bytes
-        image = face_recognition.load_image_file(io.BytesIO(image_bytes))
-        return image  # Return the loaded image for encoding
-    
-    def extract_features(self, image_data: Any) -> np.ndarray:
-        # Get face encodings (features)
-        encodings = face_recognition.face_encodings(image_data)
-        if encodings:
-            return encodings[0]  # Use the first encoding if multiple faces are detected
-        else:
-            return np.array([])  # Return empty array if no faces found
-
 # Biometric Manager
 class BiometricManager:
+    
     def __init__(self):
         self.authenticators = {
             "voice": VoiceAuthenticator(),
@@ -530,8 +597,7 @@ class BiometricManager:
                 if method == "voice":
                     available.append(method)
                 elif method == "face":
-                    available.append(method)  # Add when implemented
-                    pass
+                    available.append(method)
                 elif method == "fingerprint":
                     available.append(method)
             except NotImplementedError:
@@ -829,7 +895,51 @@ def internal_error(error):
     print("500 error occurred")
     return jsonify({"success": False, "message": "Internal server error"}), 500
 
+def create_tables():
+    """Create the users_biometrics table if it doesn't exist"""
+    conn = None
+    cursor = None
+    try:
+        conn = db_connection()
+        if not conn:
+            print("Could not connect to database")
+            return False
+        
+        cursor = conn.cursor()
+        
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS users_biometrics (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) UNIQUE NOT NULL,
+            voice_data LONGBLOB NULL,
+            face_data LONGBLOB NULL,
+            fingerprint_data LONGBLOB NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+        """
+        
+        cursor.execute(create_table_query)
+        conn.commit()
+        print("Database table created/verified successfully")
+        return True
+        
+    except Exception as e:
+        print(f"Error creating database table: {e}")
+        return False
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None and conn.is_connected():
+            conn.close()
+
 if __name__ == '__main__':
     print("Starting Flask server...")
+    
+    # Create database tables
+    if not create_tables():
+        print("Failed to create/verify database tables")
+        exit(1)
+    
     print("Available authentication methods:", biometric_manager.get_available_methods())
     app.run(debug=True, host='0.0.0.0', port=5000)
