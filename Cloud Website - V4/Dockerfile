@@ -1,34 +1,47 @@
-# Use a prebuilt image that includes dlib + face_recognition + OpenCV
-FROM facefusion/face-recognition:latest
+# Stage 1: Build environment
+FROM python:3.9.18-slim as builder
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# Install system dependencies for audio + image processing and HTTPS
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    ffmpeg \               
-    libsndfile1 \          
-    libgl1 \               
-    libsm6 \               
-    libxext6 \             
-    libxrender-dev \       
-    ca-certificates \      
-    git \                  
+    build-essential \
+    cmake \
+    libopenblas-dev \
+    liblapack-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libatlas-base-dev \
+    gfortran \
+    pkg-config \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --user -r requirements.txt
 
-# Copy your app code into the container
-COPY . .
+# Stage 2: Runtime environment
+FROM python:3.9.18-slim
 
-# Expose the port your Flask app uses (match with Gunicorn bind)
-EXPOSE 5000
+# Create non-root user
+RUN useradd -m appuser
 
-# Run the app using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+WORKDIR /app
+
+# Copy installed packages
+COPY --from=builder /root/.local /home/appuser/.local
+COPY --chown=appuser . .
+
+# Set environment variables
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PORT=8000 \
+    PYTHONUNBUFFERED=1
+
+# Switch to non-root user
+USER appuser
+
+# Expose and run
+EXPOSE $PORT
+CMD ["sh", "-c", "gunicorn --workers ${WORKERS:-4} --bind 0.0.0.0:${PORT} authentication:app"]
