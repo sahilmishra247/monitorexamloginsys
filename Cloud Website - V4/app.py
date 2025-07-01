@@ -7,7 +7,7 @@ import os
 import librosa
 from resemblyzer import VoiceEncoder
 import io
-import face_recognition
+#import face_recognition
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import cv2
@@ -281,7 +281,13 @@ class BiometricAuthenticator(ABC):
 class VoiceAuthenticator(BiometricAuthenticator):
     def __init__(self):
         super().__init__("voice", Config.VOICE_THRESHOLD)
-        self.encoder = VoiceEncoder()
+        self.encoder = None
+
+    def get_encoder(self):
+        if self.encoder is None:
+            print("Loading voice encoder now...")
+            self.encoder = VoiceEncoder()
+        return self.encoder
     
     def preprocess_data(self, data: bytes) -> np.ndarray:
         """Preprocess audio data"""
@@ -293,7 +299,8 @@ class VoiceAuthenticator(BiometricAuthenticator):
     def extract_features(self, data: np.ndarray) -> np.ndarray:
         """Extract voice features using Resemblyzer"""
         print("Extracting voice features")
-        return self.encoder.embed_utterance(data)
+        encoder=self.get_encoder()
+        return encoder.embed_utterance(data)
 
 # Updated Fingerprint Authentication Implementation
 class FingerprintAuthenticator(BiometricAuthenticator):
@@ -493,7 +500,7 @@ class FingerprintAuthenticator(BiometricAuthenticator):
 
 
 # Placeholder class for future face authentication
-class FaceAuthenticator(BiometricAuthenticator):
+"""class FaceAuthenticator(BiometricAuthenticator):
     def __init__(self):
         super().__init__("face", Config.FACE_THRESHOLD)
     
@@ -508,14 +515,14 @@ class FaceAuthenticator(BiometricAuthenticator):
         if encodings:
             return encodings[0]  # Use the first encoding if multiple faces are detected
         else:
-            return np.array([])  # Return empty array if no faces found
+            return np.array([])  # Return empty array if no faces found"""
 
 # Biometric Manager
 class BiometricManager:
     def __init__(self):
         self.authenticators = {
             "voice": VoiceAuthenticator(),
-            "face": FaceAuthenticator(),
+            #"face": FaceAuthenticator(),
             "fingerprint": FingerprintAuthenticator()
         }
     
@@ -602,6 +609,10 @@ def register():
                 }), 400
             raw_data = decode_base64(data_b64)
         elif auth_type == 'face':
+            return jsonify({
+                    "success": False,
+                    "message": "Missing face biometric process"
+                }), 501
             data_b64 = data.get('face_data') or data.get('data_b64')
             if not data_b64:
                 return jsonify({
@@ -694,6 +705,10 @@ def login():
                 }), 400
             raw_data = decode_base64(data_b64)
         elif auth_type == 'face':
+            return jsonify({
+                    "success": False,
+                    "message": "Missing face biometric process"
+                }), 501
             data_b64 = data.get('face_data') or data.get('data_b64')
             if not data_b64:
                 return jsonify({
