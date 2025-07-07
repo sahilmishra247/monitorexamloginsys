@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice + Passkey Login System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(120deg, #c3cfe2, #e2ebf0);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 40px 35px;
+            border-radius: 20px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(40px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        h1 {
+            margin-bottom: 25px;
+            color: #512da8;
+            font-size: 30px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 14px;
+            margin: 12px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: 0.3s ease;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #7e57c2;
+            box-shadow: 0 0 5px rgba(126, 87, 194, 0.3);
+            outline: none;
+        }
+        .auth-method-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background-color: #fafafa;
+        }
+        .user-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .user-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        .user-option:hover {
+            background-color: #e3f2fd;
+        }
+        .user-option input[type="radio"] {
+            margin-right: 12px;
+            transform: scale(1.2);
+        }
+        .user-label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
+        .method-selection {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two columns now for Voice and Passkey */
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .method-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 15px 10px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background-color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            justify-content: center;
+            min-height: 80px;
+        }
+        .method-option:hover {
+            border-color: #7e57c2;
+            background-color: #f8f5ff;
+        }
+        .method-option input[type="radio"] {
+            margin: 0;
+            width: auto;
+        }
+        .method-option input[type="radio"]:checked + .method-label {
+            color: #512da8;
+            font-weight: bold;
+        }
+        .method-option:has(input[type="radio"]:checked) {
+            border-color: #7e57c2;
+            background-color: #f3e5f5;
+        }
+        .voice-section,
+        .webauthn-section { /* New class for WebAuthn section */
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            background-color: #fafafa;
+        }
+        .voice-controls,
+        .webauthn-controls { /* New class for WebAuthn controls */
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .record-btn,
+        .webauthn-btn { /* New class for WebAuthn buttons */
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .record-btn.start {
+            background: linear-gradient(to right, #e53935, #c62828);
+            color: white;
+        }
+        .record-btn.start:hover {
+            background: linear-gradient(to right, #d32f2f, #b71c1c);
+            transform: scale(1.05);
+        }
+        .record-btn.stop {
+            background: linear-gradient(to right, #43a047, #2e7d32);
+            color: white;
+        }
+        .record-btn.stop:hover {
+            background: linear-gradient(to right, #388e3c, #1b5e20);
+            transform: scale(1.05);
+        }
+        .webauthn-btn {
+            background: linear-gradient(to right, #2196f3, #1976d2); /* Blue gradient for WebAuthn */
+            color: white;
+        }
+        .webauthn-btn:hover {
+            background: linear-gradient(to right, #1e88e5, #1565c0);
+            transform: scale(1.05);
+        }
+        .record-btn:disabled,
+        .webauthn-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .recording-indicator,
+        .webauthn-indicator { /* New class for WebAuthn indicator */
+            display: none;
+            color: #e53935;
+            font-weight: bold;
+            margin: 10px 0;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .recording-indicator.active,
+        .webauthn-indicator.active {
+            display: block;
+        }
+        .audio-preview {
+            margin: 15px 0;
+            display: none;
+        }
+        .audio-preview.show {
+            display: block;
+        }
+        .audio-preview audio {
+            width: 100%;
+            border-radius: 5px;
+        }
+        .voice-status,
+        .webauthn-status { /* New class for WebAuthn status */
+            font-size: 14px;
+            color: #666;
+            margin: 10px 0;
+        }
+        button {
+            padding: 12px 28px;
+            margin: 12px 10px 0;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(to right, #7e57c2, #512da8);
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s;
+        }
+        button:hover {
+            background: linear-gradient(to right, #673ab7, #311b92);
+            transform: scale(1.03);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .message {
+            margin-top: 25px;
+            padding: 12px;
+            border-radius: 10px;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .message.error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .message.processing {
+            background-color: #fff3e0;
+            color: #f57c00;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #7e57c2;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+                max-width: 90%;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            .method-selection {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .method-option {
+                flex-direction: row;
+                min-height: auto;
+                padding: 12px 15px;
+            }
+            button {
+                width: 100%;
+                margin: 10px 0 0;
+            }
+            .voice-controls,
+            .webauthn-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .record-btn,
+            .webauthn-btn {
+                width: 80%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Biometric Login System</h1>
+        <form id="authForm">
+            <div class="auth-method-section">
+                <h3 style="color: #512da8; margin-top: 0;">Are you a new User?</h3>
+                <div class="user-selection">
+                    <label class="user-option">
+                        <input type="radio" name="user_type" value="register" checked>
+                        <span class="user-label">New User/Register</span>
+                    </label>
+                    <label class="user-option">
+                        <input type="radio" name="user_type" value="login">
+                        <span class="user-label">Existing User/Login</span>
+                    </label>
+                </div>
+            </div>
+            <input type="text" name="username" id="username" placeholder="👤 Enter your username" required>
+            
+            <!-- Authentication Method Selection -->
+            <div class="auth-method-section">
+                <h3 style="color: #512da8; margin-top: 0;">🔐 Choose Authentication Method</h3>
+                <div class="method-selection">
+                    <label class="method-option">
+                        <input type="radio" name="auth_method" value="voice" id="voiceMethod" checked>
+                        <span class="method-label">🎤 Voice Authentication</span>
+                    </label>
+                    <label class="method-option">
+                        <input type="radio" name="auth_method" value="webauthn" id="webauthnMethod">
+                        <span class="method-label">🔑 Passkey Authentication</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Voice Authentication Section -->
+            <div class="voice-section" id="voiceSection">
+                <h3 style="color: #512da8; margin-top: 0;">🎤 Voice Authentication</h3>
+                <div class="voice-prompt" id="voicePrompt" style="background-color: #f3e5f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #7e57c2;">
+                    <strong>📢 Say this line:</strong><br>
+                    <span style="font-style: italic; color: #512da8; font-size: 16px;">
+                        "My name is <span id="promptName">[Enter your name above]</span> and my ID is <span id="promptId">[Enter your username above]</span>"
+                    </span>
+                </div>
+                <div class="voice-controls">
+                    <button type="button" class="record-btn start" id="startRecord">
+                        🔴 Start Recording
+                    </button>
+                    <button type="button" class="record-btn stop" id="stopRecord" disabled>
+                        ⏹️ Stop Recording
+                    </button>
+                </div>
+                <div class="recording-indicator" id="recordingIndicator">
+                    🔴 Recording... Speak now!
+                </div>
+                <div class="voice-status" id="voiceStatus">
+                    Click "Start Recording" to capture your voice sample
+                </div>
+                <div class="audio-preview" id="audioPreview">
+                    <audio controls id="audioPlayback"></audio>
+                </div>
+            </div>
+            
+            <!-- Passkey (WebAuthn) Authentication Section -->
+            <div class="webauthn-section" id="webauthnSection" style="display: none;">
+                <h3 style="color: #512da8; margin-top: 0;">🔑 Passkey Authentication</h3>
+                <div style="background-color: #f3e5f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #7e57c2;">
+                    <strong>✨ Use your Passkey:</strong><br>
+                    <span style="font-style: italic; color: #512da8; font-size: 14px;">
+                        Register a new passkey or login with an existing one.
+                    </span>
+                </div>
+                <div class="webauthn-controls">
+                    <button type="button" class="webauthn-btn" id="registerPasskeyBtn">
+                        ➕ Register Passkey
+                    </button>
+                    <button type="button" class="webauthn-btn" id="loginPasskeyBtn">
+                        ➡️ Login with Passkey
+                    </button>
+                </div>
+                <div class="webauthn-status" id="webauthnStatus">
+                    Click "Register Passkey" or "Login with Passkey"
+                </div>
+            </div>
+
+            <input type="hidden" name="voice_data" id="voiceData">
+            
+            <button type="button" id="submitBtn" style="display: none;">Submit</button> <!-- Submit button hidden by default -->
+        </form>
+        <div id="message" class="message" style="display: none"></div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let audioBlob;
+        let isRecording = false;
+        let audioStream;
+        
+        const startBtn = document.getElementById('startRecord');
+        const stopBtn = document.getElementById('stopRecord');
+        const indicator = document.getElementById('recordingIndicator');
+        const status = document.getElementById('voiceStatus');
+        const preview = document.getElementById('audioPreview');
+        const playback = document.getElementById('audioPlayback');
+        const voiceDataInput = document.getElementById('voiceData');
+        
+        const submitBtn = document.getElementById('submitBtn');
+        const messageDiv = document.getElementById('message');
+        const voiceMethodRadio = document.getElementById('voiceMethod');
+        const webauthnMethodRadio = document.getElementById('webauthnMethod'); // New radio button
+        const voiceSection = document.getElementById('voiceSection');
+        const webauthnSection = document.getElementById('webauthnSection'); // New section
+        
+        const registerPasskeyBtn = document.getElementById('registerPasskeyBtn'); // New button
+        const loginPasskeyBtn = document.getElementById('loginPasskeyBtn');     // New button
+        const webauthnStatus = document.getElementById('webauthnStatus');       // New status div
+
+        const usernameInput = document.getElementById('username');
+        const userTypeRadios = document.querySelectorAll('input[name="user_type"]');
+
+        // Update prompt text dynamically
+        usernameInput.addEventListener('input', updateVoicePrompt);
+        function updateVoicePrompt() {
+            const username = usernameInput.value || '[Enter your username above]';
+            document.getElementById('promptName').textContent = username; // Assuming name is same as username for prompt
+            document.getElementById('promptId').textContent = username;
+        }
+        updateVoicePrompt(); // Initial call
+
+        // Authentication method switching
+        function switchAuthMethod() {
+            const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
+            
+            // Hide all sections first
+            voiceSection.style.display = 'none';
+            webauthnSection.style.display = 'none';
+            submitBtn.style.display = 'none'; // Hide general submit button by default
+
+            // Reset all data
+            voiceDataInput.value = '';
+            resetVoiceRecording();
+            resetWebAuthnStatus();
+            
+            // Show the selected section
+            switch(selectedMethod) {
+                case 'voice':
+                    voiceSection.style.display = 'block';
+                    // Voice authentication will enable submit button after recording
+                    break;
+                case 'webauthn':
+                    webauthnSection.style.display = 'block';
+                    // WebAuthn buttons will trigger their own flows, no general submit button needed initially
+                    break;
+            }
+            
+            checkSubmitRequirements();
+        }
+
+        // Add event listeners for all radio buttons
+        voiceMethodRadio.addEventListener('change', switchAuthMethod);
+        webauthnMethodRadio.addEventListener('change', switchAuthMethod);
+
+        // User type change handler (Register/Login)
+        userTypeRadios.forEach(radio => {
+            radio.addEventListener('change', checkSubmitRequirements);
+        });
+
+        function resetVoiceRecording() {
+            voiceDataInput.value = '';
+            preview.classList.remove('show');
+            status.textContent = 'Click "Start Recording" to capture your voice sample';
+            status.style.color = '#666';
+            recordedChunks = [];
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+                audioStream = null;
+            }
+            disableSubmitButtons(); // Voice needs recording to enable submit
+        }
+
+        function resetWebAuthnStatus() {
+            webauthnStatus.textContent = 'Click "Register Passkey" or "Login with Passkey"';
+            webauthnStatus.style.color = '#666';
+            // WebAuthn buttons are always enabled for interaction
+            registerPasskeyBtn.disabled = false;
+            loginPasskeyBtn.disabled = false;
+            submitBtn.style.display = 'none'; // Ensure main submit is hidden for WebAuthn
+        }
+
+        function checkSubmitRequirements() {
+            const selectedMethod = document.querySelector('input[name="auth_method"]:checked').value;
+            const userType = document.querySelector('input[name="user_type"]:checked').value;
+            const username = usernameInput.value.trim();
+
+            if (!username) {
+                disableSubmitButtons(); // Disable if username is empty
+                return;
+            }
+
+            if (selectedMethod === 'voice') {
+                if (voiceDataInput.value) {
+                    enableSubmitButtons();
+                } else {
+                    disableSubmitButtons();
+                }
+            } else if (selectedMethod === 'webauthn') {
+                // For WebAuthn, the main submit button is not used directly.
+                // The passkey buttons trigger the action.
+                submitBtn.style.display = 'none'; 
+            }
+        }
+
+        function enableSubmitButtons() {
+            submitBtn.disabled = false;
+            submitBtn.style.display = 'block'; // Show general submit button
+        }
+
+        function disableSubmitButtons() {
+            submitBtn.disabled = true;
+            submitBtn.style.display = 'none'; // Hide general submit button
+        }
+
+        // Voice recording functionality
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showMessage('Voice recording is not supported in this browser', 'error');
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+            status.textContent = 'Microphone not available';
+            status.style.color = '#c62828';
+        }
+
+        startBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
+
+        async function startRecording() {
+            try {
+                console.log('Starting audio recording...');
+                recordedChunks = [];
+                audioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000
+                    } 
+                });
+                console.log('Audio stream started');
+                const options = {
+                    mimeType: 'audio/webm;codecs=opus'
+                };
+                
+                if (MediaRecorder.isTypeSupported('audio/wav')) {
+                    options.mimeType = 'audio/wav';
+                } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    options.mimeType = 'audio/webm;codecs=opus';
+                } else {
+                    options.mimeType = 'audio/webm';
+                }
+                
+                mediaRecorder = new MediaRecorder(audioStream, options);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    audioBlob = new Blob(recordedChunks, { 
+                        type: mediaRecorder.mimeType 
+                    });
+                    
+                    console.log('Original blob type:', mediaRecorder.mimeType);
+                    console.log('Original blob size:', audioBlob.size);
+                    
+                    let wavBlob;
+                    if (mediaRecorder.mimeType.includes('wav')) {
+                        wavBlob = audioBlob;
+                    } else {
+                        wavBlob = await convertToWav(audioBlob);
+                    }
+                    
+                    console.log('WAV blob size:', wavBlob.size);
+                    
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    playback.src = audioUrl;
+                    preview.classList.add('show');
+                    
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = reader.result.split(',')[1];
+                        voiceDataInput.value = base64;
+                        status.textContent = '✅ Voice sample recorded successfully!';
+                        status.style.color = '#2e7d32';
+                        checkSubmitRequirements();
+                    };
+                    reader.readAsDataURL(wavBlob);
+                    
+                    audioStream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                indicator.classList.add('active');
+                status.textContent = 'Recording in progress... Speak clearly for 3-10 seconds';
+                status.style.color = '#e53935';
+                disableSubmitButtons();
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                showMessage('Could not access microphone. Please check permissions.', 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                indicator.classList.remove('active');
+            }
+        }
+
+        async function convertToWav(audioBlob) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const arrayBuffer = e.target.result;
+                    
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: 16000
+                    });
+                    
+                    try {
+                        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                        const wavBuffer = audioBufferToWav(audioBuffer);
+                        const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+                        
+                        audioContext.close();
+                        resolve(wavBlob);
+                    } catch (error) {
+                        console.error('Error converting to WAV:', error);
+                        resolve(audioBlob); // Fallback to original blob if conversion fails
+                    }
+                };
+                reader.readAsArrayBuffer(audioBlob);
+            });
+        }
+
+        function audioBufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            
+            const audioData = [];
+            for (let channel = 0; channel < numChannels; channel++) {
+                audioData.push(buffer.getChannelData(channel));
+            }
+            
+            const interleaved = new Float32Array(buffer.length * numChannels);
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channel = 0; channel < numChannels; channel++) {
+                    interleaved[i * numChannels + channel] = audioData[channel][i];
+                }
+            }
+
+            const dataView = new DataView(new ArrayBuffer(44 + interleaved.length * bytesPerSample));
+            let offset = 0;
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            function writeUint32(view, offset, value) {
+                view.setUint32(offset, value, true);
+            }
+
+            function writeUint16(view, offset, value) {
+                view.setUint16(offset, value, true);
+            }
+
+            // RIFF chunk descriptor
+            writeString(dataView, offset, 'RIFF'); offset += 4;
+            writeUint32(dataView, offset, 36 + interleaved.length * bytesPerSample); offset += 4;
+            writeString(dataView, offset, 'WAVE'); offset += 4;
+
+            // FMT sub-chunk
+            writeString(dataView, offset, 'fmt '); offset += 4;
+            writeUint32(dataView, offset, 16); offset += 4; // Subchunk1Size for PCM
+            writeUint16(dataView, offset, format); offset += 2; // AudioFormat
+            writeUint16(dataView, offset, numChannels); offset += 2; // NumChannels
+            writeUint32(dataView, offset, sampleRate); offset += 4; // SampleRate
+            writeUint32(dataView, offset, sampleRate * blockAlign); offset += 4; // ByteRate
+            writeUint16(dataView, offset, blockAlign); offset += 2; // BlockAlign
+            writeUint16(dataView, offset, bitDepth); offset += 2; // BitsPerSample
+
+            // DATA sub-chunk
+            writeString(dataView, offset, 'data'); offset += 4;
+            writeUint32(dataView, offset, interleaved.length * bytesPerSample); offset += 4;
+
+            // Write the interleaved audio data
+            for (let i = 0; i < interleaved.length; i++) {
+                let s = Math.max(-1, Math.min(1, interleaved[i]));
+                s = s < 0 ? s * 0x8000 : s * 0x7FFF; // Convert to 16-bit PCM
+                dataView.setInt16(offset, s, true);
+                offset += bytesPerSample;
+            }
+
+            return dataView.buffer;
+        }
+
+        // --- WebAuthn (Passkey) Functionality ---
+        registerPasskeyBtn.addEventListener('click', startWebAuthnRegistration);
+        loginPasskeyBtn.addEventListener('click', startWebAuthnLogin);
+
+        async function startWebAuthnRegistration() {
+            const username = usernameInput.value.trim();
+            if (!username) {
+                showMessage('Please enter a username to register a passkey.', 'error');
+                return;
+            }
+
+            showMessage('Generating passkey registration challenge...', 'processing');
+            try {
+                const response = await fetch('/register-webauthn-challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    showMessage(`Error: ${data.error}`, 'error');
+                    return;
+                }
+
+                const publicKeyCredentialCreationOptions = data.publicKey;
+                // Convert challenge and user.id from base64url to ArrayBuffer
+                publicKeyCredentialCreationOptions.challenge = base64urlToArrayBuffer(publicKeyCredentialCreationOptions.challenge);
+                publicKeyCredentialCreationOptions.user.id = base64urlToArrayBuffer(publicKeyCredentialCreationOptions.user.id);
+
+                showMessage('Please follow your device prompts to register your passkey...', 'processing');
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyCredentialCreationOptions
+                });
+
+                // Convert ArrayBuffers back to base64url for sending to server
+                const attestationResponse = {
+                    id: credential.id,
+                    rawId: arrayBufferToBase64url(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                        attestationObject: arrayBufferToBase64url(credential.response.attestationObject)
+                    },
+                    authenticatorAttachment: credential.authenticatorAttachment,
+                    clientExtensionResults: credential.clientExtensionResults
+                };
+
+                showMessage('Verifying passkey registration...', 'processing');
+                const verifyResponse = await fetch('/register-webauthn-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attestationResponse)
+                });
+                const verifyData = await verifyResponse.json();
+
+                if (verifyData.success) {
+                    showMessage('✅ Passkey registered successfully!', 'success');
+                    webauthnStatus.textContent = 'Passkey registered. You can now log in.';
+                    webauthnStatus.style.color = '#2e7d32';
+                } else {
+                    showMessage(`Passkey registration failed: ${verifyData.error}`, 'error');
+                    webauthnStatus.textContent = 'Passkey registration failed.';
+                    webauthnStatus.style.color = '#c62828';
+                }
+
+            } catch (error) {
+                console.error('WebAuthn Registration Error:', error);
+                showMessage(`Passkey registration failed: ${error.message || error}`, 'error');
+                webauthnStatus.textContent = 'Passkey registration failed.';
+                webauthnStatus.style.color = '#c62828';
+            }
+        }
+
+        async function startWebAuthnLogin() {
+            const username = usernameInput.value.trim();
+            // For discoverable credentials, username is optional for challenge generation
+            // but often used to pre-filter credentials on the server side.
+
+            showMessage('Generating passkey login challenge...', 'processing');
+            try {
+                const response = await fetch('/login-webauthn-challenge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username }) // Send username if available
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    showMessage(`Error: ${data.error}`, 'error');
+                    return;
+                }
+
+                const publicKeyCredentialRequestOptions = data.publicKey;
+                // Convert challenge and allowCredentials.id from base64url to ArrayBuffer
+                publicKeyCredentialRequestOptions.challenge = base64urlToArrayBuffer(publicKeyCredentialRequestOptions.challenge);
+                if (publicKeyCredentialRequestOptions.allowCredentials) {
+                    publicKeyCredentialRequestOptions.allowCredentials.forEach(cred => {
+                        cred.id = base64urlToArrayBuffer(cred.id);
+                    });
+                }
+
+                showMessage('Please follow your device prompts to login with your passkey...', 'processing');
+                const credential = await navigator.credentials.get({
+                    publicKey: publicKeyCredentialRequestOptions
+                });
+
+                // Convert ArrayBuffers back to base64url for sending to server
+                const assertionResponse = {
+                    id: credential.id,
+                    rawId: arrayBufferToBase64url(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON),
+                        authenticatorData: arrayBufferToBase64url(credential.response.authenticatorData),
+                        signature: arrayBufferToBase64url(credential.response.signature),
+                        userHandle: credential.response.userHandle ? arrayBufferToBase64url(credential.response.userHandle) : null
+                    },
+                    clientExtensionResults: credential.clientExtensionResults
+                };
+
+                showMessage('Verifying passkey login...', 'processing');
+                const verifyResponse = await fetch('/login-webauthn-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(assertionResponse)
+                });
+                const verifyData = await verifyResponse.json();
+
+                if (verifyData.success) {
+                    showMessage('✅ Login successful with Passkey!', 'success');
+                    webauthnStatus.textContent = 'Login successful!';
+                    webauthnStatus.style.color = '#2e7d32';
+                } else {
+                    showMessage(`Passkey login failed: ${verifyData.error}`, 'error');
+                    webauthnStatus.textContent = 'Passkey login failed.';
+                    webauthnStatus.style.color = '#c62828';
+                }
+
+            } catch (error) {
+                console.error('WebAuthn Login Error:', error);
+                showMessage(`Passkey login failed: ${error.message || error}`, 'error');
+                webauthnStatus.textContent = 'Passkey login failed.';
+                webauthnStatus.style.color = '#c62828';
+            }
+        }
+
+        // Helper functions for WebAuthn (base64url <-> ArrayBuffer)
+        function base64urlToArrayBuffer(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const raw = window.atob(base64);
+            const outputArray = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; ++i) {
+                outputArray[i] = raw.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+
+        function arrayBufferToBase64url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        // --- General Submit Button Logic ---
+        submitBtn.addEventListener('click', async () => {
+            const username = document.getElementById('username').value.trim();
+            const userType = document.querySelector('input[name="user_type"]:checked').value;
+            const authMethod = document.querySelector('input[name="auth_method"]:checked').value;
+
+            if (!username) {
+                showMessage('Please enter a username.', 'error');
+                return;
+            }
+
+            showMessage('Processing request...', 'processing');
+
+            let formData = new FormData();
+            formData.append('username', username);
+            formData.append('auth_method', authMethod);
+
+            let apiUrl = '';
+
+            if (userType === 'register') {
+                apiUrl = '/api/register';
+            } else { // userType === 'login'
+                apiUrl = '/api/login';
+            }
+
+            if (authMethod === 'voice') {
+                const voiceData = voiceDataInput.value;
+                if (!voiceData) {
+                    showMessage('Please record your voice first.', 'error');
+                    return;
+                }
+                formData.append('voice_data', voiceData);
+            } else if (authMethod === 'webauthn') {
+                // WebAuthn has its own buttons, this path should ideally not be taken
+                // if the user clicks the general submit button for WebAuthn.
+                // However, if it is, we prevent it and prompt them to use the specific buttons.
+                showMessage('For Passkey authentication, please use the "Register Passkey" or "Login with Passkey" buttons.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    body: formData // FormData is used for file uploads (if any, though not for voice now)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(`✅ ${result.message}`, 'success');
+                } else {
+                    showMessage(`❌ ${result.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                showMessage(`❌ An unexpected error occurred: ${error.message}`, 'error');
+            }
+        });
+
+        function showMessage(msg, type = 'info') {
+            messageDiv.textContent = msg;
+            messageDiv.className = `message ${type}`;
+            messageDiv.style.display = 'block';
+        }
+
+        // Initial setup
+        switchAuthMethod(); // Set initial visible section based on default radio button
+        usernameInput.addEventListener('input', checkSubmitRequirements);
+    </script>
+</body>
+</html>
