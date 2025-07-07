@@ -22,8 +22,9 @@ RUN apt-get update && apt-get install -y \
 RUN python -c "from resemblyzer import VoiceEncoder; encoder = VoiceEncoder(); print('Resemblyzer model downloaded.')"
 
 # Copy the application code
-COPY authentication.py .
-COPY static/ ./static/ # Copy your static folder (assuming index.html is here)
+COPY app.py .
+COPY static/ ./static/ 
+# Copy your static folder (assuming index.html is here)
 
 # Expose the port that Render will use (Render sets PORT environment variable)
 # Gunicorn will bind to this port
