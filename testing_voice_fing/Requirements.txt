@@ -7,3 +7,4 @@ Flask-Session==0.5.0
 mysql-connector-python==8.0.33
 webauthn==1.4.0
 gunicorn==21.2.0
+redis
