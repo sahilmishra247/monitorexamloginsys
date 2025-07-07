@@ -5,6 +5,7 @@ FROM python:3.9-slim-buster
 WORKDIR /app
 
 # Copy the requirements file first to leverage Docker cache
+# Since Render's Root Directory is 'testing_voice_fing', requirements.txt is directly accessible.
 COPY requirements.txt .
 
 # Install Python dependencies
@@ -22,15 +23,19 @@ RUN apt-get update && apt-get install -y \
 RUN python -c "from resemblyzer import VoiceEncoder; encoder = VoiceEncoder(); print('Resemblyzer model downloaded.')"
 
 # Copy the application code
+# Since Render's Root Directory is 'testing_voice_fing', app.py is directly accessible.
 COPY app.py .
-COPY static/ ./static/ 
+
 # Copy your static folder (assuming index.html is here)
+# Important: Removed the inline comment as it caused a parsing error previously.
+# Since Render's Root Directory is 'testing_voice_fing', static/ is directly accessible.
+COPY static/ ./static/
 
 # Expose the port that Render will use (Render sets PORT environment variable)
 # Gunicorn will bind to this port
 EXPOSE $PORT
 
 # Command to run the application using Gunicorn
-# 'authentication:app' refers to the 'app' object in 'authentication.py'
-# It will bind to 0.0.0.0 on the port specified by the PORT environment variable
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "authentication:app"]
+# 'app:app' refers to the 'app' object in 'app.py' (formerly authentication.py).
+# It will bind to 0.0.0.0 on the port specified by the PORT environment variable.
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "app:app"]
