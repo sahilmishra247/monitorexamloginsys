@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Copy the requirements file first to leverage Docker cache
 # This path is relative to the Docker Build Context Directory (testing_voice_fing/)
-COPY requirements.txt . # <--- BACK TO THE SIMPLE PATH
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
@@ -23,11 +23,11 @@ RUN python -c "from resemblyzer import VoiceEncoder; encoder = VoiceEncoder(); p
 
 # Copy the application code
 # This path is relative to the Docker Build Context Directory (testing_voice_fing/)
-COPY app.py . # <--- BACK TO THE SIMPLE PATH
+COPY app.py .
 
 # Copy your static folder
 # This path is relative to the Docker Build Context Directory (testing_voice_fing/)
-COPY static/ ./static/ # <--- BACK TO THE SIMPLE PATH (and no inline comment)
+COPY static/ ./static/
 
 # Expose the port that Render will use (Render sets PORT environment variable)
 EXPOSE $PORT
