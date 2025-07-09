@@ -940,7 +940,7 @@
                         enableSubmitButtons();
                         return;
                     }
-                    
+                    console.log('Face data:', faceData); // ADDED: Log face data for debugging
                     const requestData = {
                         username: username,
                         auth_method: 'face',
@@ -1001,6 +1001,9 @@
 
                 if (result.success) {
                     showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
+                    setTimeout(() => {
+                        window.location.href = "exam.html";
+                    }, 5000);
                 } else {
                     showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');
                 }
