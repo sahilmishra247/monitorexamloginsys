@@ -1002,7 +1002,7 @@
                 if (result.success) {
                     showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'success');
                     setTimeout(() => {
-                        window.location.href = "exam.html";
+                        window.location.href = "/static/exam.html";
                     }, 5000);
                 } else {
                     showMessage(`${result.message} (Similarity: ${result.similarity || 'N/A'})`, 'error');

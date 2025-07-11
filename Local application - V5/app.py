@@ -6,11 +6,9 @@ import os
 import librosa
 from resemblyzer import VoiceEncoder
 import io
-# import face_recognition # Removed dlib-dependent face_recognition
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 import json
-from datetime import datetime
 import cv2 # OpenCV is now the primary face processing library
 import mysql.connector
 from mysql.connector import Error
@@ -1044,6 +1042,37 @@ def login():
                 "success": False,
                 "message": f"Missing required fields: {', '.join(missing)}"
             }), 400
+        
+        cursor = None
+        conn = None
+        try:
+            conn = db_connection()
+            if conn is None:
+                raise ValueError("Database connection failed")
+            
+            cursor = conn.cursor()
+            query = f"SELECT voice_data, face_data FROM users_biometrics WHERE username = %s"
+            cursor.execute(query, (user_id,))
+            result = cursor.fetchone()
+            voice_data, face_data = result
+
+            missing = []
+            if not voice_data: missing.append('voice data')
+            if not face_data: missing.append('face data')
+            if missing:
+                return jsonify({
+                    "success": False,
+                    "message": f"Not registered for required fields: {', '.join(missing)}"
+                }), 400
+        
+        except Exception as e:
+            print(f"Error loading voice or face features: {e}")
+            return None
+        finally:
+            if cursor is not None:
+                cursor.close()
+            if conn is not None and conn.is_connected():
+                conn.close()
         
         # Get authenticator
         authenticator = biometric_manager.get_authenticator(auth_type)

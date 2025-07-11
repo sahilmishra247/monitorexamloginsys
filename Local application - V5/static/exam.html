@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Online Exam Monitoring</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      text-align: center;
+    }
+    video {
+      width: 50%;
+      border: 2px solid #444;
+      margin-top: 20px;
+    }
+    #report {
+      margin-top: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      margin: 10px;
+    }
+    #timer {
+      font-size: 1.5rem;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Exam Monitoring Interface</h1>
+  
+  <video id="video" autoplay muted></video>
+  <div id="timer">Time Left: 00:00</div>
+  <div id="status"></div>
+
+  <div>
+    <button id="startExam" onclick="startExam()">Start Exam</button>
+    <button id="endExam" onclick="endExam()" disabled>End Exam</button>
+    <button id="registerVoice">Register Voice</button>
+  </div>
+
+  <div id="report"></div>
+
+  <script src="{{ url_for('static', filename='exam.js') }}"></script>
+</body>
+</html>
